@@ -15,6 +15,7 @@ export type { Epic, EpicCreate, EpicUpdate, EpicStatus, EpicEffort } from './typ
 export type { SessionReport, StandupReport, ReportType } from './types/report.js';
 export type { GitHubConfig, GitHubConfigUpdate, GitHubSyncLog, GitHubSyncAction, GitHubEntityType } from './types/github.js';
 export type { Worktree, WorktreeCreate, WorktreeList, WorktreeStatus } from './types/worktree.js';
+export type { Team, TeamCreate, TeamUpdate, TeamMember, MemberCreate, MemberUpdate, MemberRole, MemberStatus, TaskAssignment, MemberWorkload, TeamWorkload } from './types/team.js';
 export type { ProjectContext, ProjectContextSet, ProjectContextQuery, ContextType } from './types/context.js';
 
 // Constants

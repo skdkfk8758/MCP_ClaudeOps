@@ -16,6 +16,7 @@ import { registerReportRoutes } from './routes/reports.js';
 import { registerGitHubRoutes } from './routes/github.js';
 import { registerWorktreeRoutes } from './routes/worktrees.js';
 import { registerContextRoutes } from './routes/contexts.js';
+import { registerTeamRoutes } from './routes/teams.js';
 import { startAggregator } from './services/aggregator.js';
 import { startCleanup } from './services/cleanup.js';
 
@@ -41,6 +42,7 @@ export async function createServer() {
   await registerGitHubRoutes(app);
   await registerWorktreeRoutes(app);
   await registerContextRoutes(app);
+  await registerTeamRoutes(app);
 
   // Start background services
   startAggregator();

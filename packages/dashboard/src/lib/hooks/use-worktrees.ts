@@ -35,7 +35,7 @@ export function useWorktrees(filter?: { status?: string; epic_id?: number }) {
 export function useCreateWorktree() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; path: string; epic_id?: number }) =>
+    mutationFn: (data: { name: string; project_path: string; epic_id?: number }) =>
       apiFetch<Worktree>('/api/worktrees', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['worktrees'] });

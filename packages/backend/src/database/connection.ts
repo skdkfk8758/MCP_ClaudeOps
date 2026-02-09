@@ -259,6 +259,41 @@ function initializeSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_worktrees_epic ON worktrees(epic_id);
     CREATE INDEX IF NOT EXISTS idx_worktrees_status ON worktrees(status);
 
+    CREATE TABLE IF NOT EXISTS teams (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      avatar_color TEXT DEFAULT '#6366f1',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS team_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      role TEXT NOT NULL DEFAULT 'member',
+      email TEXT,
+      avatar_url TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      specialties TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(team_id, name)
+    );
+
+    CREATE TABLE IF NOT EXISTS task_assignees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      member_id INTEGER NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+      assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(task_id, member_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
+    CREATE INDEX IF NOT EXISTS idx_task_assignees_task ON task_assignees(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_assignees_member ON task_assignees(member_id);
+
     CREATE TABLE IF NOT EXISTS project_contexts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_path TEXT NOT NULL,

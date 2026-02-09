@@ -10,6 +10,7 @@ import { registerEpicTools } from './epic.js';
 import { registerReportTools } from './report.js';
 import { registerGitHubTools } from './github.js';
 import { registerWorktreeTools } from './worktree.js';
+import { registerTeamTools } from './team.js';
 
 export function registerAllTools(server: McpServer): void {
   registerSessionTools(server);
@@ -23,4 +24,5 @@ export function registerAllTools(server: McpServer): void {
   registerReportTools(server);
   registerGitHubTools(server);
   registerWorktreeTools(server);
+  registerTeamTools(server);
 }

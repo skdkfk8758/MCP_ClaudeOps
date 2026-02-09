@@ -27,7 +27,7 @@ export default function WorktreesPage() {
 
   const handleCreate = () => {
     if (!name || !path) return;
-    createMutation.mutate({ name, path, epic_id: epicId }, {
+    createMutation.mutate({ name, project_path: path, epic_id: epicId }, {
       onSuccess: () => {
         setCreateOpen(false);
         setName('');

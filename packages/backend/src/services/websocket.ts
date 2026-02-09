@@ -104,6 +104,34 @@ export class WebSocketManager {
   notifyContextDeleted(id: unknown): void {
     this.broadcast('context', 'deleted', { id });
   }
+
+  notifyTeamCreated(team: unknown): void {
+    this.broadcast('team', 'created', team);
+  }
+
+  notifyTeamUpdated(team: unknown): void {
+    this.broadcast('team', 'updated', team);
+  }
+
+  notifyTeamDeleted(id: unknown): void {
+    this.broadcast('team', 'deleted', { id });
+  }
+
+  notifyMemberAdded(member: unknown): void {
+    this.broadcast('member', 'added', member);
+  }
+
+  notifyMemberUpdated(member: unknown): void {
+    this.broadcast('member', 'updated', member);
+  }
+
+  notifyMemberRemoved(id: unknown): void {
+    this.broadcast('member', 'removed', { id });
+  }
+
+  notifyTaskAssigned(data: unknown): void {
+    this.broadcast('task', 'assigned', data);
+  }
 }
 
 export const wsManager = new WebSocketManager();

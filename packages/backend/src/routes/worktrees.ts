@@ -23,7 +23,7 @@ export async function registerWorktreeRoutes(app: FastifyInstance): Promise<void
       status: query.status,
       epic_id: query.epic_id ? parseInt(query.epic_id, 10) : undefined,
     });
-    return reply.send(worktrees);
+    return reply.send({ items: worktrees, total: worktrees.length });
   });
 
   // GET /api/worktrees/:id - Get worktree

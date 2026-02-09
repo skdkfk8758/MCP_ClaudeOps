@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { Task } from '@claudeops/shared';
 import { PriorityBadge } from './priority-badge';
+import { MemberAvatar } from '@/components/teams/member-avatar';
 import { Calendar, User } from 'lucide-react';
 
 export function TaskCard({ task, onDragStart }: { task: Task; onDragStart?: (e: React.DragEvent, task: Task) => void }) {
@@ -48,9 +49,20 @@ export function TaskCard({ task, onDragStart }: { task: Task; onDragStart?: (e: 
       )}
       <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="text-muted-foreground/60">#{task.id}</span>
-        {task.assignee && (
+        {task.assignees && task.assignees.length > 0 ? (
+          <span className="flex items-center -space-x-1.5">
+            {task.assignees.slice(0, 3).map((a) => (
+              <MemberAvatar key={a.id} name={a.name} size="sm" />
+            ))}
+            {task.assignees.length > 3 && (
+              <span className="flex items-center justify-center w-6 h-6 rounded-full bg-muted text-[10px] font-medium text-muted-foreground border border-background">
+                +{task.assignees.length - 3}
+              </span>
+            )}
+          </span>
+        ) : task.assignee ? (
           <span className="flex items-center gap-1"><User className="h-3 w-3" />{task.assignee}</span>
-        )}
+        ) : null}
         {task.due_date && (
           <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{task.due_date.slice(0, 10)}</span>
         )}

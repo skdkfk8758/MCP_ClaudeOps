@@ -3,13 +3,13 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { navItems } from './nav-items';
+import { navGroups } from './nav-items';
 import { useUiStore } from '@/stores/ui-store';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { sidebarCollapsed, toggleSidebar } = useUiStore();
+  const { sidebarCollapsed, toggleSidebar, collapsedGroups, toggleGroup } = useUiStore();
 
   return (
     <aside className={cn(
@@ -24,24 +24,47 @@ export function Sidebar() {
           {sidebarCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
-      <nav className="space-y-1 p-2">
-        {navItems.map((item) => {
-          const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
-          const Icon = item.icon;
+      <nav className="overflow-y-auto h-[calc(100vh-3.5rem)] p-2 space-y-1">
+        {navGroups.map((group, gi) => {
+          const isCollapsed = collapsedGroups[group.title];
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer',
-                isActive
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            <div key={gi}>
+              {group.title && (
+                <>
+                  {sidebarCollapsed ? (
+                    <div className="my-2 border-t border-border" />
+                  ) : (
+                    <button
+                      onClick={() => toggleGroup(group.title)}
+                      className="cursor-pointer flex items-center justify-between w-full px-3 py-2 mt-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <span>{group.title}</span>
+                      <ChevronDown className={cn('h-3 w-3 transition-transform', isCollapsed && '-rotate-90')} />
+                    </button>
+                  )}
+                </>
               )}
-            >
-              <Icon className="h-4 w-4 shrink-0" />
-              {!sidebarCollapsed && <span>{item.label}</span>}
-            </Link>
+              {(!isCollapsed || sidebarCollapsed) && group.items.map((item) => {
+                const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    title={sidebarCollapsed ? item.label : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-200 cursor-pointer',
+                      isActive
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    )}
+                  >
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {!sidebarCollapsed && <span>{item.label}</span>}
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </nav>

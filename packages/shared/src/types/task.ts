@@ -23,6 +23,8 @@ export interface Task {
   epic_title?: string;
   github_issue_url?: string | null;
   github_issue_number?: number | null;
+  assignee_ids?: number[];
+  assignees?: { id: number; name: string; role: string; avatar_url: string | null }[];
 }
 
 export interface TaskCreate {

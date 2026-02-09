@@ -13,6 +13,15 @@ function enrichTask(row: Record<string, unknown>): Task {
     const epic = db.prepare('SELECT title FROM epics WHERE id = ?').get(task.epic_id) as { title: string } | undefined;
     task.epic_title = epic?.title;
   }
+  // Load assignees
+  const assigneeRows = db.prepare(`
+    SELECT m.id, m.name, m.role, m.avatar_url
+    FROM task_assignees ta
+    JOIN team_members m ON ta.member_id = m.id
+    WHERE ta.task_id = ?
+  `).all(task.id) as { id: number; name: string; role: string; avatar_url: string | null }[];
+  task.assignees = assigneeRows;
+  task.assignee_ids = assigneeRows.map(a => a.id);
   return task;
 }
 

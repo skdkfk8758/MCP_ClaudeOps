@@ -33,11 +33,11 @@ export function listWorktrees(filter?: { status?: string; epic_id?: number }): W
   const conditions: string[] = [];
   const params: unknown[] = [];
 
-  if (filter?.status) { conditions.push('status = ?'); params.push(filter.status); }
-  if (filter?.epic_id) { conditions.push('epic_id = ?'); params.push(filter.epic_id); }
+  if (filter?.status) { conditions.push('w.status = ?'); params.push(filter.status); }
+  if (filter?.epic_id) { conditions.push('w.epic_id = ?'); params.push(filter.epic_id); }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  return db.prepare(`SELECT * FROM worktrees ${whereClause} ORDER BY created_at DESC`).all(...params) as WorktreeRecord[];
+  return db.prepare(`SELECT w.*, e.title as epic_title FROM worktrees w LEFT JOIN epics e ON w.epic_id = e.id ${whereClause} ORDER BY w.created_at DESC`).all(...params) as WorktreeRecord[];
 }
 
 export function getWorktree(id: number): WorktreeRecord | undefined {
