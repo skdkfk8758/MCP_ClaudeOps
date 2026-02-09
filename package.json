@@ -1,0 +1,21 @@
+{
+  "name": "mcp-claudeops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Claude Code Operations Dashboard - MCP Server for session monitoring, agent performance, and cost analysis",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "clean": "turbo run clean && rm -rf node_modules"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.7.0"
+  }
+}

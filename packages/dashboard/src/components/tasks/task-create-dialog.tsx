@@ -1,0 +1,106 @@
+'use client';
+
+import { useState } from 'react';
+import { useCreateTask } from '@/lib/hooks/use-tasks';
+import { X } from 'lucide-react';
+
+export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState('P2');
+  const [status, setStatus] = useState('backlog');
+  const [assignee, setAssignee] = useState('');
+  const [effort, setEffort] = useState('');
+  const createTask = useCreateTask();
+
+  if (!open) return null;
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim()) return;
+    createTask.mutate({
+      title: title.trim(),
+      description: description.trim() || undefined,
+      priority,
+      status,
+      assignee: assignee.trim() || undefined,
+      estimated_effort: effort || undefined,
+    }, {
+      onSuccess: () => {
+        setTitle(''); setDescription(''); setPriority('P2'); setStatus('backlog'); setAssignee(''); setEffort('');
+        onClose();
+      },
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold">새 작업 만들기</h2>
+          <button onClick={onClose} className="cursor-pointer rounded-md p-1 hover:bg-accent transition-colors"><X className="h-4 w-4" /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="task-title" className="text-sm text-muted-foreground block mb-1">제목 *</label>
+            <input id="task-title" type="text" value={title} onChange={(e) => setTitle(e.target.value)} required
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="작업 제목 입력..." />
+          </div>
+          <div>
+            <label htmlFor="task-desc" className="text-sm text-muted-foreground block mb-1">설명</label>
+            <textarea id="task-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="작업 설명..." />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="task-priority" className="text-sm text-muted-foreground block mb-1">우선순위</label>
+              <select id="task-priority" value={priority} onChange={(e) => setPriority(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="P0">P0 - 긴급</option>
+                <option value="P1">P1 - 높음</option>
+                <option value="P2">P2 - 보통</option>
+                <option value="P3">P3 - 낮음</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="task-status" className="text-sm text-muted-foreground block mb-1">상태</label>
+              <select id="task-status" value={status} onChange={(e) => setStatus(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="backlog">백로그</option>
+                <option value="todo">할 일</option>
+                <option value="in_progress">진행 중</option>
+                <option value="review">리뷰</option>
+                <option value="done">완료</option>
+              </select>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="task-assignee" className="text-sm text-muted-foreground block mb-1">담당자</label>
+              <input id="task-assignee" type="text" value={assignee} onChange={(e) => setAssignee(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="담당자 이름" />
+            </div>
+            <div>
+              <label htmlFor="task-effort" className="text-sm text-muted-foreground block mb-1">예상 공수</label>
+              <select id="task-effort" value={effort} onChange={(e) => setEffort(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                <option value="">선택 안 함</option>
+                <option value="S">S - 소</option>
+                <option value="M">M - 중</option>
+                <option value="L">L - 대</option>
+                <option value="XL">XL - 특대</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="cursor-pointer rounded-md px-4 py-2 text-sm hover:bg-accent transition-colors">취소</button>
+            <button type="submit" disabled={createTask.isPending}
+              className="cursor-pointer rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50">
+              {createTask.isPending ? '생성 중...' : '작업 생성'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

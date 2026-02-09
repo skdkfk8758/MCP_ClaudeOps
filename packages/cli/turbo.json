@@ -1,0 +1,9 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["@claudeops/shared#build"],
+      "outputs": ["dist/**"]
+    }
+  }
+}

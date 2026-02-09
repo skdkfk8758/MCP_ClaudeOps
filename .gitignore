@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.next/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+.DS_Store
+coverage/
+~/.claudeops/
+*.pid
+.omc/
+.agents/skills/
+.claude/
+.npmrc
