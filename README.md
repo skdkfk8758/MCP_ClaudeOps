@@ -48,7 +48,7 @@ Dashboard (:48391) ◄── WebSocket ── Backend
 ### 1. 클론 및 빌드
 
 ```bash
-git clone https://github.com/<your-username>/MCP_ClaudeOps.git
+git clone https://github.com/skdkfk8758/MCP_ClaudeOps.git
 cd MCP_ClaudeOps
 pnpm install
 pnpm turbo run build
