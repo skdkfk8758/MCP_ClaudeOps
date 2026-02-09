@@ -50,22 +50,17 @@ Dashboard (:48391) ◄── WebSocket ── Backend
 
 ## 설치
 
-### 1. 클론 및 빌드
+### 빠른 설치 (권장)
 
 ```bash
-git clone https://github.com/skdkfk8758/MCP_ClaudeOps.git
-cd MCP_ClaudeOps
-pnpm install
-pnpm turbo run build
+curl -fsSL https://raw.githubusercontent.com/skdkfk8758/MCP_ClaudeOps/main/install.sh | bash
 ```
 
-### 2. 자동 설치 (권장)
-
-모니터링할 프로젝트 디렉토리에서 실행합니다:
+설치 후 모니터링할 프로젝트에서:
 
 ```bash
 cd /path/to/your-project
-node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js setup
+claudeops setup
 ```
 
 이 명령 하나로 다음이 자동 수행됩니다:
@@ -78,86 +73,34 @@ node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js setup
 
 완료 후 **Claude Code를 재시작**하면 MCP 서버와 Hook이 활성화됩니다.
 
-### 3. 수동 설치
-
-자동 설치 대신 직접 설정하려면:
-
-#### 서비스 시작
+### 수동 설치
 
 ```bash
-# Backend
-node /path/to/MCP_ClaudeOps/packages/backend/dist/index.js &
-
-# Dashboard
-cd /path/to/MCP_ClaudeOps/packages/dashboard
-npx next start --port 48391 &
+git clone https://github.com/skdkfk8758/MCP_ClaudeOps.git
+cd MCP_ClaudeOps
+pnpm install
+pnpm turbo run build
 ```
 
-#### MCP 서버 등록
+모니터링할 프로젝트에서:
 
-프로젝트의 `.claude/settings.local.json`:
-
-```json
-{
-  "mcpServers": {
-    "claudeops": {
-      "command": "node",
-      "args": ["/path/to/MCP_ClaudeOps/packages/mcp-server/dist/index.js"],
-      "env": {
-        "CLAUDEOPS_BACKEND_URL": "http://localhost:48390"
-      }
-    }
-  }
-}
+```bash
+cd /path/to/your-project
+node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js setup
 ```
 
-#### Hook 등록
-
-동일한 `.claude/settings.local.json`에 hooks 추가:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||require('crypto').randomUUID();fetch('http://localhost:48390/api/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:sid,project_path:d.cwd||process.cwd()}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "SessionEnd": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/sessions/'+sid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({end_time:new Date().toISOString(),status:'completed'}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "PreToolUse": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'tool_call_start',payload:{tool_name:d.tool_name}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "PostToolUse": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'tool_call_end',payload:{tool_name:d.tool_name,duration_ms:d.duration_ms,success:true}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "SubagentStart": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/agents/executions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,agent_type:d.agent_type||'unknown',model:d.model||'unknown',task_description:d.task_description}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "SubagentStop": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'subagent_stop',payload:d}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "UserPromptSubmit": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'user_prompt',payload:{prompt_length:d.prompt?d.prompt.length:0}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }],
-    "Stop": [{
-      "hooks": [{"type": "command", "command": "node -e \"const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('http://localhost:48390/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'stop',payload:{reason:d.reason||'unknown'}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))\""}]
-    }]
-  }
-}
-```
-
-## 다중 프로젝트 모니터링
+### 다중 프로젝트 모니터링
 
 하나의 ClaudeOps 인스턴스로 여러 프로젝트를 모니터링할 수 있습니다:
 
 ```bash
 # 프로젝트 A
 cd /path/to/project-a
-node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js setup
+claudeops setup
 
 # 프로젝트 B (서비스는 재사용, Hook/MCP만 등록)
 cd /path/to/project-b
-node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js setup
+claudeops setup
 ```
 
 ## CLI 명령어
@@ -249,13 +192,14 @@ claudeops worktree context get --project <path> [--type <type>]
 | `CLAUDEOPS_BACKEND_PORT` | `48390` | Backend API 포트 |
 | `CLAUDEOPS_DASHBOARD_PORT` | `48391` | Dashboard 포트 |
 | `CLAUDEOPS_BACKEND_URL` | `http://localhost:48390` | MCP 서버 → Backend 연결 URL |
+| `CLAUDEOPS_HOME` | `~/.claudeops-install` | ClaudeOps 설치 디렉토리 |
 | `CLAUDEOPS_DATA_DIR` | `~/.claudeops` | 데이터 디렉토리 (SQLite DB) |
 
 ## 제거
 
 ```bash
 cd /path/to/your-project
-node /path/to/MCP_ClaudeOps/packages/cli/dist/index.js teardown
+claudeops teardown
 ```
 
 ## 기술 스택

@@ -139,25 +139,28 @@ export async function setup(): Promise<void> {
   }
   const hooks: Record<string, unknown[]> = (hookSettings.hooks ?? {}) as Record<string, unknown[]>;
 
+  const hooksDir = join(getMonorepoRoot(), 'packages', 'hooks');
   const hookDefs: Record<string, string> = {
-    SessionStart: `node -e "const fs=require('fs');const d=JSON.parse(fs.readFileSync('/dev/stdin','utf8'));const sid=d.session_id||require('crypto').randomUUID();fetch('${BACKEND_URL}/api/sessions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:sid,project_path:d.cwd||process.cwd()}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    SessionEnd: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/sessions/'+sid,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({end_time:new Date().toISOString(),status:'completed'}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    PreToolUse: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'tool_call_start',payload:{tool_name:d.tool_name}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    PostToolUse: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'tool_call_end',payload:{tool_name:d.tool_name,duration_ms:d.duration_ms,success:true}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    SubagentStart: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/agents/executions',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,agent_type:d.agent_type||'unknown',model:d.model||'unknown',task_description:d.task_description}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    SubagentStop: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'subagent_stop',payload:d}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    UserPromptSubmit: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'user_prompt',payload:{prompt_length:d.prompt?d.prompt.length:0}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
-    Stop: `node -e "const d=JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));const sid=d.session_id||'unknown';fetch('${BACKEND_URL}/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,event_type:'stop',payload:{reason:d.reason||'unknown'}}),signal:AbortSignal.timeout(3000)}).catch(()=>{});console.log(JSON.stringify({continue:true}))"`,
+    SessionStart: `node "${join(hooksDir, 'session-start.js')}"`,
+    SessionEnd: `node "${join(hooksDir, 'session-end.js')}"`,
+    PreToolUse: `node "${join(hooksDir, 'pre-tool-use.js')}"`,
+    PostToolUse: `node "${join(hooksDir, 'post-tool-use.js')}"`,
+    SubagentStart: `node "${join(hooksDir, 'subagent-start.js')}"`,
+    SubagentStop: `node "${join(hooksDir, 'subagent-stop.js')}"`,
+    UserPromptSubmit: `node "${join(hooksDir, 'user-prompt-submit.js')}"`,
+    Stop: `node "${join(hooksDir, 'stop.js')}"`,
   };
 
   for (const [event, command] of Object.entries(hookDefs)) {
     const existing: unknown[] = hooks[event] || [];
     const filtered = (existing as Array<Record<string, unknown>>).filter((h) => {
       const innerHooks = h.hooks as Array<Record<string, string>> | undefined;
-      if (innerHooks?.some((inner) => inner.command?.includes(String(BACKEND_PORT)))) return false;
+      if (innerHooks?.some((inner) =>
+        inner.command?.includes(String(BACKEND_PORT)) || inner.command?.includes('packages/hooks/')
+      )) return false;
       return true;
     });
-    filtered.push({ hooks: [{ type: 'command', command }] });
+    filtered.push({ hooks: [{ type: 'command', command, environment: { CLAUDEOPS_BACKEND_URL: BACKEND_URL } }] });
     hooks[event] = filtered;
   }
 

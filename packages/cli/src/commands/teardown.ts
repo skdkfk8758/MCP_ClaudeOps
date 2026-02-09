@@ -32,7 +32,9 @@ export async function teardown(): Promise<void> {
         if (settings.hooks?.[event]) {
           settings.hooks[event] = (settings.hooks[event] as Array<Record<string, unknown>>).filter((h) => {
             const innerHooks = h.hooks as Array<Record<string, string>> | undefined;
-            return !innerHooks?.some((inner) => inner.command?.includes('48390'));
+            return !innerHooks?.some((inner) =>
+              inner.command?.includes('48390') || inner.command?.includes('packages/hooks/')
+            );
           });
           if (settings.hooks[event].length === 0) delete settings.hooks[event];
         }

@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
@@ -20,7 +21,19 @@ export function getPidDir(): string {
 }
 
 export function getMonorepoRoot(): string {
-  return join(__dirname, '..', '..', '..');
+  // 1. 환경변수 (install.sh에서 설정)
+  if (process.env.CLAUDEOPS_HOME) return process.env.CLAUDEOPS_HOME;
+
+  // 2. 상대 경로 (개발 환경, 기존 방식)
+  const relativeRoot = join(__dirname, '..', '..', '..');
+  if (existsSync(join(relativeRoot, 'pnpm-workspace.yaml'))) return relativeRoot;
+
+  // 3. 표준 설치 위치
+  const standardDir = join(homedir(), '.claudeops-install');
+  if (existsSync(join(standardDir, 'pnpm-workspace.yaml'))) return standardDir;
+
+  // 4. Fallback
+  return relativeRoot;
 }
 
 export function getBackendDir(): string {
