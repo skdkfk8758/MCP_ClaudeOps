@@ -5,6 +5,11 @@ import { registerEventTools } from './event.js';
 import { registerAnalyticsTools } from './analytics.js';
 import { registerConfigTools } from './config.js';
 import { registerTaskTools } from './task.js';
+import { registerPrdTools } from './prd.js';
+import { registerEpicTools } from './epic.js';
+import { registerReportTools } from './report.js';
+import { registerGitHubTools } from './github.js';
+import { registerWorktreeTools } from './worktree.js';
 
 export function registerAllTools(server: McpServer): void {
   registerSessionTools(server);
@@ -13,4 +18,9 @@ export function registerAllTools(server: McpServer): void {
   registerAnalyticsTools(server);
   registerConfigTools(server);
   registerTaskTools(server);
+  registerPrdTools(server);
+  registerEpicTools(server);
+  registerReportTools(server);
+  registerGitHubTools(server);
+  registerWorktreeTools(server);
 }

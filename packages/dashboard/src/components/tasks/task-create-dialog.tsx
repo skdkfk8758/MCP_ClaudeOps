@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useCreateTask } from '@/lib/hooks/use-tasks';
+import { useEpics } from '@/lib/hooks/use-epics';
 import { X } from 'lucide-react';
 
 export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -11,7 +12,9 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
   const [status, setStatus] = useState('backlog');
   const [assignee, setAssignee] = useState('');
   const [effort, setEffort] = useState('');
+  const [epicId, setEpicId] = useState<number | undefined>();
   const createTask = useCreateTask();
+  const { data: epicsData } = useEpics();
 
   if (!open) return null;
 
@@ -25,9 +28,10 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
       status,
       assignee: assignee.trim() || undefined,
       estimated_effort: effort || undefined,
+      epic_id: epicId,
     }, {
       onSuccess: () => {
-        setTitle(''); setDescription(''); setPriority('P2'); setStatus('backlog'); setAssignee(''); setEffort('');
+        setTitle(''); setDescription(''); setPriority('P2'); setStatus('backlog'); setAssignee(''); setEffort(''); setEpicId(undefined);
         onClose();
       },
     });
@@ -91,6 +95,16 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
                 <option value="XL">XL - 특대</option>
               </select>
             </div>
+          </div>
+          <div>
+            <label htmlFor="task-epic" className="text-sm text-muted-foreground block mb-1">연결된 에픽</label>
+            <select id="task-epic" value={epicId || ''} onChange={(e) => setEpicId(e.target.value ? parseInt(e.target.value) : undefined)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+              <option value="">선택 안 함</option>
+              {epicsData?.items.map((epic) => (
+                <option key={epic.id} value={epic.id}>{epic.title}</option>
+              ))}
+            </select>
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="cursor-pointer rounded-md px-4 py-2 text-sm hover:bg-accent transition-colors">취소</button>

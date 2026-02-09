@@ -35,7 +35,7 @@ export function useTaskHistory(id: number) {
 export function useCreateTask() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; description?: string; status?: string; priority?: string; assignee?: string; labels?: string[]; estimated_effort?: string }) =>
+    mutationFn: (data: { title: string; description?: string; status?: string; priority?: string; assignee?: string; labels?: string[]; estimated_effort?: string; epic_id?: number }) =>
       apiFetch<Task>('/api/tasks', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tasks'] });

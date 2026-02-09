@@ -10,6 +10,12 @@ import { registerTokenRoutes } from './routes/tokens.js';
 import { registerConfigRoutes } from './routes/config.js';
 import { registerWsRoutes } from './routes/ws.js';
 import { registerTaskRoutes } from './routes/tasks.js';
+import { registerPrdRoutes } from './routes/prds.js';
+import { registerEpicRoutes } from './routes/epics.js';
+import { registerReportRoutes } from './routes/reports.js';
+import { registerGitHubRoutes } from './routes/github.js';
+import { registerWorktreeRoutes } from './routes/worktrees.js';
+import { registerContextRoutes } from './routes/contexts.js';
 import { startAggregator } from './services/aggregator.js';
 import { startCleanup } from './services/cleanup.js';
 
@@ -29,6 +35,12 @@ export async function createServer() {
   await registerConfigRoutes(app);
   await registerWsRoutes(app);
   await registerTaskRoutes(app);
+  await registerPrdRoutes(app);
+  await registerEpicRoutes(app);
+  await registerReportRoutes(app);
+  await registerGitHubRoutes(app);
+  await registerWorktreeRoutes(app);
+  await registerContextRoutes(app);
 
   // Start background services
   startAggregator();

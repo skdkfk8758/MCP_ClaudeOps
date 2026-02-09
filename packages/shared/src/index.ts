@@ -10,6 +10,12 @@ export type { WsMessage, WsChannel, WsAction, WsClientMessage } from './types/ws
 export type { FileChange, ErrorRecord, SkillInvocation, UserPrompt, DailyStats, AgentUsageStats, ToolUsageStats, ConfigEntry } from './types/models.js';
 export type { PaginatedResponse, PaginationParams, ApiErrorResponse } from './types/api.js';
 export type { Task, TaskCreate, TaskUpdate, TaskMove, TaskBoard, TaskHistoryEntry, TaskStats, TaskStatus, TaskPriority, TaskEffort } from './types/task.js';
+export type { Prd, PrdCreate, PrdUpdate, PrdStatus } from './types/prd.js';
+export type { Epic, EpicCreate, EpicUpdate, EpicStatus, EpicEffort } from './types/epic.js';
+export type { SessionReport, StandupReport, ReportType } from './types/report.js';
+export type { GitHubConfig, GitHubConfigUpdate, GitHubSyncLog, GitHubSyncAction, GitHubEntityType } from './types/github.js';
+export type { Worktree, WorktreeCreate, WorktreeList, WorktreeStatus } from './types/worktree.js';
+export type { ProjectContext, ProjectContextSet, ProjectContextQuery, ContextType } from './types/context.js';
 
 // Constants
 export { PORTS, PATHS, DEFAULT_PRICING, RETENTION_DAYS, CHARACTER_LIMIT, API_ENDPOINTS } from './constants.js';

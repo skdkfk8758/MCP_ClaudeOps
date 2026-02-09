@@ -12,7 +12,7 @@ let clientIdCounter = 0;
 export async function registerWsRoutes(app: FastifyInstance): Promise<void> {
   app.get('/ws', { websocket: true }, (socket) => {
     const clientId = String(++clientIdCounter);
-    clients.set(clientId, { socket, channels: new Set(['session', 'event', 'agent', 'stats', 'alert', 'task']) });
+    clients.set(clientId, { socket, channels: new Set(['session', 'event', 'agent', 'stats', 'alert', 'task', 'prd', 'epic', 'report', 'github', 'worktree', 'context']) });
 
     socket.on('message', (raw: Buffer) => {
       try {

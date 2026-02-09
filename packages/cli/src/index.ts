@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
 import { registerTaskCommand } from './commands/task.js';
+import { registerPrdCommand } from './commands/prd.js';
+import { registerEpicCommand } from './commands/epic.js';
+import { registerReportCommand } from './commands/report.js';
+import { registerGitHubCommand } from './commands/github.js';
+import { registerWorktreeCommand } from './commands/worktree.js';
 
 const program = new Command();
 
@@ -51,5 +56,10 @@ program
   });
 
 registerTaskCommand(program);
+registerPrdCommand(program);
+registerEpicCommand(program);
+registerReportCommand(program);
+registerGitHubCommand(program);
+registerWorktreeCommand(program);
 
 program.parse();

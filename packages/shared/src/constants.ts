@@ -28,4 +28,10 @@ export const API_ENDPOINTS = {
   CONFIG: '/api/config',
   EXPORT: '/api/export',
   TASKS: '/api/tasks',
+  PRDS: '/api/prds',
+  EPICS: '/api/epics',
+  REPORTS: '/api/reports',
+  GITHUB: '/api/github',
+  WORKTREES: '/api/worktrees',
+  CONTEXTS: '/api/contexts',
 } as const;

@@ -179,11 +179,138 @@ function initializeSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_task_labels_task ON task_labels(task_id);
     CREATE INDEX IF NOT EXISTS idx_task_history_task ON task_history(task_id);
     CREATE INDEX IF NOT EXISTS idx_task_sessions_task ON task_sessions(task_id);
+
+    CREATE TABLE IF NOT EXISTS prds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'backlog',
+      vision TEXT,
+      user_stories TEXT,
+      success_criteria TEXT,
+      constraints TEXT,
+      out_of_scope TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS epics (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      prd_id INTEGER REFERENCES prds(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      status TEXT NOT NULL DEFAULT 'backlog',
+      progress INTEGER NOT NULL DEFAULT 0,
+      architecture_notes TEXT,
+      tech_approach TEXT,
+      estimated_effort TEXT,
+      github_issue_url TEXT,
+      github_issue_number INTEGER,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS session_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id TEXT NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      report_type TEXT NOT NULL DEFAULT 'session',
+      content TEXT NOT NULL,
+      tools_used TEXT,
+      files_changed TEXT,
+      token_summary TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(session_id, report_type)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_epics_prd ON epics(prd_id);
+    CREATE INDEX IF NOT EXISTS idx_epics_status ON epics(status);
+    CREATE INDEX IF NOT EXISTS idx_reports_session ON session_reports(session_id);
+
+    CREATE TABLE IF NOT EXISTS github_config (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      repo_owner TEXT,
+      repo_name TEXT,
+      enabled INTEGER NOT NULL DEFAULT 0,
+      auto_sync INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    INSERT OR IGNORE INTO github_config (id) VALUES (1);
+
+    CREATE TABLE IF NOT EXISTS github_sync_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      entity_type TEXT NOT NULL,
+      entity_id INTEGER NOT NULL,
+      action TEXT NOT NULL,
+      github_url TEXT,
+      synced_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_github_sync_entity ON github_sync_log(entity_type, entity_id);
+
+    CREATE TABLE IF NOT EXISTS worktrees (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      epic_id INTEGER REFERENCES epics(id) ON DELETE SET NULL,
+      name TEXT NOT NULL,
+      path TEXT NOT NULL,
+      branch TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      merged_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_worktrees_epic ON worktrees(epic_id);
+    CREATE INDEX IF NOT EXISTS idx_worktrees_status ON worktrees(status);
+
+    CREATE TABLE IF NOT EXISTS project_contexts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_path TEXT NOT NULL,
+      context_type TEXT NOT NULL,
+      title TEXT NOT NULL,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(project_path, context_type)
+    );
+    CREATE INDEX IF NOT EXISTS idx_contexts_project ON project_contexts(project_path);
   `);
 
   // Add task_id column to agent_executions if not exists
   try {
     database.exec(`ALTER TABLE agent_executions ADD COLUMN task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL`);
+  } catch {
+    // column already exists
+  }
+
+  // Add epic_id column to tasks if not exists
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN epic_id INTEGER REFERENCES epics(id) ON DELETE SET NULL`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`CREATE INDEX IF NOT EXISTS idx_tasks_epic ON tasks(epic_id)`);
+  } catch {
+    // index already exists
+  }
+
+  // Add GitHub columns to tasks
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN github_issue_url TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN github_issue_number INTEGER`);
+  } catch {
+    // column already exists
+  }
+
+  // Add GitHub columns to prds
+  try {
+    database.exec(`ALTER TABLE prds ADD COLUMN github_issue_url TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE prds ADD COLUMN github_issue_number INTEGER`);
   } catch {
     // column already exists
   }

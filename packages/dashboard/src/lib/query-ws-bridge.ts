@@ -39,8 +39,33 @@ export function useWebSocketBridge(): void {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     });
 
+    const unsubPrd = wsClient.on('prd', () => {
+      queryClient.invalidateQueries({ queryKey: ['prds'] });
+    });
+
+    const unsubEpic = wsClient.on('epic', () => {
+      queryClient.invalidateQueries({ queryKey: ['epics'] });
+    });
+
+    const unsubReport = wsClient.on('report', () => {
+      queryClient.invalidateQueries({ queryKey: ['reports'] });
+    });
+
+    const unsubGitHub = wsClient.on('github', () => {
+      queryClient.invalidateQueries({ queryKey: ['github'] });
+    });
+
+    const unsubWorktree = wsClient.on('worktree', () => {
+      queryClient.invalidateQueries({ queryKey: ['worktrees'] });
+    });
+
+    const unsubContext = wsClient.on('context', () => {
+      queryClient.invalidateQueries({ queryKey: ['contexts'] });
+    });
+
     return () => {
       unsubSession(); unsubEvent(); unsubAgent(); unsubStats(); unsubAlert(); unsubTask();
+      unsubPrd(); unsubEpic(); unsubReport(); unsubGitHub(); unsubWorktree(); unsubContext();
       wsClient.disconnect();
     };
   }, [queryClient]);

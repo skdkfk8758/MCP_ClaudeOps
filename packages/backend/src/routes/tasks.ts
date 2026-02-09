@@ -5,7 +5,7 @@ import { wsManager } from '../services/websocket.js';
 export async function registerTaskRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/tasks
   app.post('/api/tasks', async (request, reply) => {
-    const body = request.body as { title?: string; description?: string; status?: string; priority?: string; assignee?: string; due_date?: string; estimated_effort?: string; labels?: string[] };
+    const body = request.body as { title?: string; description?: string; status?: string; priority?: string; assignee?: string; due_date?: string; estimated_effort?: string; labels?: string[]; epic_id?: number };
     if (!body.title) return reply.status(400).send({ error: 'bad_request', message: 'title is required' });
     const task = createTask(body as Parameters<typeof createTask>[0]);
     wsManager.notifyTaskCreated(task);

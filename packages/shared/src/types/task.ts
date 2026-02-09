@@ -11,6 +11,7 @@ export interface Task {
   assignee: string | null;
   due_date: string | null;
   estimated_effort: string | null;
+  epic_id: number | null;
   position: number;
   created_at: string;
   updated_at: string;
@@ -19,6 +20,9 @@ export interface Task {
   blocks?: number[];
   blocked_by?: number[];
   session_ids?: string[];
+  epic_title?: string;
+  github_issue_url?: string | null;
+  github_issue_number?: number | null;
 }
 
 export interface TaskCreate {
@@ -29,6 +33,7 @@ export interface TaskCreate {
   assignee?: string;
   due_date?: string;
   estimated_effort?: TaskEffort;
+  epic_id?: number;
   labels?: string[];
 }
 
@@ -40,6 +45,7 @@ export interface TaskUpdate {
   assignee?: string;
   due_date?: string | null;
   estimated_effort?: TaskEffort | null;
+  epic_id?: number | null;
   labels?: string[];
 }
 

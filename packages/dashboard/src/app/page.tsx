@@ -3,6 +3,7 @@ import { OverviewCards } from '@/components/dashboard/overview-cards';
 import { CostSummary } from '@/components/dashboard/cost-summary';
 import { LiveIndicator } from '@/components/dashboard/live-indicator';
 import { TaskStatsWidget } from '@/components/tasks/task-stats-widget';
+import { PrdEpicWidget } from '@/components/prds/prd-epic-widget';
 
 export default function DashboardPage() {
   return (
@@ -21,6 +22,9 @@ export default function DashboardPage() {
       </Suspense>
       <Suspense fallback={<div className="h-32 animate-pulse rounded-lg bg-muted" />}>
         <TaskStatsWidget />
+      </Suspense>
+      <Suspense fallback={<div className="grid grid-cols-1 md:grid-cols-2 gap-4">{Array.from({length:2}).map((_,i)=><div key={i} className="h-32 animate-pulse rounded-lg bg-muted" />)}</div>}>
+        <PrdEpicWidget />
       </Suspense>
     </div>
   );

@@ -16,6 +16,7 @@ export function registerTaskTools(server: McpServer): void {
       due_date: z.string().optional().describe('Due date (ISO format)'),
       estimated_effort: z.enum(['S', 'M', 'L', 'XL']).optional().describe('Estimated effort'),
       labels: z.array(z.string()).optional().describe('Labels/tags'),
+      epic_id: z.number().int().optional().describe('Parent Epic ID'),
     },
     async (params) => {
       const result = await apiPost('/api/tasks', params);

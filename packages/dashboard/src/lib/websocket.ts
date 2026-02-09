@@ -14,7 +14,7 @@ class WsClient {
     this.ws = new WebSocket(WS_URL);
 
     this.ws.onopen = () => {
-      this.ws?.send(JSON.stringify({ type: 'subscribe', channels: ['session', 'event', 'agent', 'stats', 'alert', 'task'] }));
+      this.ws?.send(JSON.stringify({ type: 'subscribe', channels: ['session', 'event', 'agent', 'stats', 'alert', 'task', 'prd', 'epic', 'report', 'github', 'worktree', 'context'] }));
     };
 
     this.ws.onmessage = (event) => {

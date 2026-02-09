@@ -1,5 +1,6 @@
 import { getDb } from '../database/index.js';
 import type { Task, TaskCreate, TaskUpdate, TaskMove, TaskBoard, TaskHistoryEntry, TaskStats, TaskStatus } from '@claudeops/shared';
+import { recalcEpicProgress } from './epic.js';
 
 function enrichTask(row: Record<string, unknown>): Task {
   const db = getDb();
@@ -8,6 +9,10 @@ function enrichTask(row: Record<string, unknown>): Task {
   task.blocks = (db.prepare('SELECT blocks_task_id FROM task_dependencies WHERE task_id = ?').all(task.id) as { blocks_task_id: number }[]).map(r => r.blocks_task_id);
   task.blocked_by = (db.prepare('SELECT task_id FROM task_dependencies WHERE blocks_task_id = ?').all(task.id) as { task_id: number }[]).map(r => r.task_id);
   task.session_ids = (db.prepare('SELECT session_id FROM task_sessions WHERE task_id = ?').all(task.id) as { session_id: string }[]).map(r => r.session_id);
+  if (task.epic_id) {
+    const epic = db.prepare('SELECT title FROM epics WHERE id = ?').get(task.epic_id) as { title: string } | undefined;
+    task.epic_title = epic?.title;
+  }
   return task;
 }
 
@@ -16,13 +21,13 @@ export function createTask(data: TaskCreate): Task {
   const maxPos = (db.prepare(`SELECT COALESCE(MAX(position), -1) + 1 as next_pos FROM tasks WHERE status = ?`).get(data.status ?? 'backlog') as { next_pos: number }).next_pos;
 
   const stmt = db.prepare(`
-    INSERT INTO tasks (title, description, status, priority, assignee, due_date, estimated_effort, position)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO tasks (title, description, status, priority, assignee, due_date, estimated_effort, position, epic_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     data.title, data.description ?? null, data.status ?? 'backlog',
     data.priority ?? 'P2', data.assignee ?? null, data.due_date ?? null,
-    data.estimated_effort ?? null, maxPos
+    data.estimated_effort ?? null, maxPos, data.epic_id ?? null
   );
 
   const taskId = result.lastInsertRowid as number;
@@ -50,7 +55,7 @@ export function updateTask(id: number, data: TaskUpdate): Task | undefined {
   const fields: string[] = [];
   const values: unknown[] = [];
 
-  const trackableFields: (keyof TaskUpdate)[] = ['title', 'description', 'status', 'priority', 'assignee', 'due_date', 'estimated_effort'];
+  const trackableFields: (keyof TaskUpdate)[] = ['title', 'description', 'status', 'priority', 'assignee', 'due_date', 'estimated_effort', 'epic_id'];
 
   for (const field of trackableFields) {
     if (data[field] !== undefined) {
@@ -88,7 +93,9 @@ export function updateTask(id: number, data: TaskUpdate): Task | undefined {
     }
   }
 
-  return getTask(id);
+  const updatedTask = getTask(id);
+  if (updatedTask?.epic_id) recalcEpicProgress(updatedTask.epic_id);
+  return updatedTask;
 }
 
 export function deleteTask(id: number): boolean {
