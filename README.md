@@ -103,6 +103,54 @@ cd /path/to/project-b
 claudeops setup
 ```
 
+## 업데이트
+
+### 빠른 업데이트
+
+```bash
+claudeops upgrade
+```
+
+이 명령 하나로 다음이 자동 수행됩니다:
+
+1. 최신 소스 코드 pull (`git pull --ff-only`)
+2. 의존성 설치 및 모든 패키지 재빌드
+3. DB 스키마 마이그레이션 (새 테이블 자동 생성)
+4. 등록된 모든 프로젝트의 MCP 서버/Hook 경로 갱신
+5. 서비스 재시작
+
+```bash
+claudeops upgrade          # 글로벌 + 모든 등록 프로젝트 업데이트
+claudeops upgrade --global # 글로벌 설치만 업데이트 (빌드 + DB + 서비스 재시작)
+claudeops upgrade --db     # DB 마이그레이션만 실행
+```
+
+### 수동 업데이트
+
+```bash
+# 1. 글로벌 업데이트
+cd ~/.claudeops-install
+git pull
+pnpm install && pnpm turbo run build
+
+# 2. 서비스 재시작
+claudeops stop
+claudeops start
+
+# 3. 각 프로젝트에서 재설정
+cd /path/to/your-project
+claudeops setup
+```
+
+### 등록된 프로젝트 확인
+
+```bash
+claudeops list
+```
+
+`claudeops setup`을 실행한 프로젝트는 자동으로 `~/.claudeops/projects.json`에 등록됩니다.
+`claudeops upgrade` 시 이 목록의 모든 프로젝트가 자동으로 재설정됩니다.
+
 ## CLI 명령어
 
 ```bash
@@ -111,6 +159,8 @@ claudeops start        # 서비스 시작 (all | backend | dashboard)
 claudeops stop         # 서비스 종료
 claudeops status       # 서비스 상태 확인
 claudeops teardown     # 서비스 중지 + 등록 해제
+claudeops upgrade      # 글로벌 업데이트 + 등록 프로젝트 재설정
+claudeops list         # 등록된 프로젝트 목록 조회
 
 claudeops task create "제목" --priority P1 --label feature
 claudeops task list --status in_progress

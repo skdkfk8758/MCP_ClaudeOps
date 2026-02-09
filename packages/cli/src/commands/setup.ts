@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import {
   getMonorepoRoot, getBackendDir, getDashboardDir, getMcpServerDist,
   getPidDir, getDataDir, BACKEND_PORT, DASHBOARD_PORT, BACKEND_URL, DASHBOARD_URL,
-  log, ok, warn, fail,
+  log, ok, warn, fail, registerProject,
 } from '../utils.js';
 
 function isPortInUse(port: number): { inUse: boolean; pid?: string } {
@@ -169,8 +169,11 @@ export async function setup(): Promise<void> {
   writeFileSync(settingsPath, JSON.stringify(hookSettings, null, 2));
   ok('8 hooks installed');
 
-  // Step 6: Verification
+  // Step 6: Register project & verify
   log('Step 6/6: Verification...');
+  registerProject(projectDir);
+  ok(`Project registered: ${projectDir}`);
+
   if (waitForHealth(`${BACKEND_URL}/health`, 3)) ok('Backend API healthy');
   else warn('Backend API not responding');
 

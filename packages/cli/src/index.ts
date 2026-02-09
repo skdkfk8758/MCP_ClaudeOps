@@ -55,6 +55,24 @@ program
     await teardown();
   });
 
+program
+  .command('upgrade')
+  .description('Upgrade ClaudeOps and re-setup registered projects')
+  .option('--global', 'Upgrade global installation only')
+  .option('--db', 'Run DB migration only')
+  .action(async (options: { global?: boolean; db?: boolean }) => {
+    const { upgrade } = await import('./commands/upgrade.js');
+    await upgrade(options);
+  });
+
+program
+  .command('list')
+  .description('List registered projects')
+  .action(async () => {
+    const { list } = await import('./commands/list.js');
+    await list();
+  });
+
 registerTaskCommand(program);
 registerPrdCommand(program);
 registerEpicCommand(program);

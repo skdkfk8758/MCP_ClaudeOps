@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { existsSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
 
@@ -63,4 +63,54 @@ export function warn(msg: string): void {
 export function fail(msg: string): never {
   console.error(`\x1b[31m[FAIL  ]\x1b[0m ${msg}`);
   process.exit(1);
+}
+
+// ── Project Registry ──────────────────────────────────────────────
+
+export interface RegisteredProject {
+  path: string;
+  setupAt: string;
+}
+
+interface ProjectRegistry {
+  projects: RegisteredProject[];
+}
+
+export function getRegistryPath(): string {
+  return join(getDataDir(), 'projects.json');
+}
+
+export function loadRegistry(): RegisteredProject[] {
+  const registryPath = getRegistryPath();
+  if (!existsSync(registryPath)) return [];
+  try {
+    const data: ProjectRegistry = JSON.parse(readFileSync(registryPath, 'utf-8'));
+    return data.projects ?? [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveRegistry(projects: RegisteredProject[]): void {
+  const registryPath = getRegistryPath();
+  mkdirSync(dirname(registryPath), { recursive: true });
+  const data: ProjectRegistry = { projects };
+  writeFileSync(registryPath, JSON.stringify(data, null, 2));
+}
+
+export function registerProject(projectPath: string): void {
+  const projects = loadRegistry();
+  const now = new Date().toISOString();
+  const idx = projects.findIndex((p) => p.path === projectPath);
+  if (idx >= 0) {
+    projects[idx].setupAt = now;
+  } else {
+    projects.push({ path: projectPath, setupAt: now });
+  }
+  saveRegistry(projects);
+}
+
+export function unregisterProject(projectPath: string): void {
+  const projects = loadRegistry().filter((p) => p.path !== projectPath);
+  saveRegistry(projects);
 }
