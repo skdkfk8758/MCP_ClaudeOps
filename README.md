@@ -7,11 +7,14 @@ Claude Code 운영 대시보드 - 세션 모니터링, 에이전트 성능 분�
 - **실시간 모니터링** - 세션, 에이전트, 도구 사용 실시간 추적
 - **비용 분석** - 모델별 토큰 사용량 및 비용 시각화, 예산 알림
 - **프로젝트 관리** - PRD → Epic → Task 계층적 추적, 칸반 보드
+- **에이전트 팀** - 페르소나 기반 팀 구성, 역할 배정, 워크로드 추적, 템플릿
+- **파이프라인 실행** - 다단계 에이전트 파이프라인 설계/실행/모니터링
+- **태스크 워크플로우** - 설계(Design) → 승인 → 구현 → 검증 자동화
 - **GitHub 동기화** - Epic/Task → GitHub Issue 양방향 동기화, 리포트 댓글 게시
 - **Worktree 격리** - Git Worktree 기반 Epic별 병렬 개발 환경
 - **프로젝트 컨텍스트** - brief/tech/architecture/rules 문서 관리
 - **세션 리포트** - 자동 세션 리포트 및 일일 스탠드업 생성
-- **47개 MCP 도구** - Claude Code 대화 중 직접 데이터 조회/관리
+- **89개 MCP 도구** - Claude Code 대화 중 직접 데이터 조회/관리
 - **8개 Hook 자동 수집** - 세션/도구/에이전트/프롬프트 이벤트 자동 기록
 - **한글 대시보드** - 전체 UI 한국어 지원
 
@@ -23,14 +26,14 @@ Claude Code
 │                   ├── Fastify + WebSocket
 │                   ├── SQLite DB (~/.claudeops/claudeops.db)
 │                   └── GitHub CLI (gh) ── GitHub Issues
-└── 47 MCP Tools ──► MCP Server (stdio)
+└── 89 MCP Tools ──► MCP Server (stdio)
                          │
                          └──► Backend API
 
 Dashboard (:48391) ◄── WebSocket ── Backend
-├── Next.js 15 + React 19
+├── Next.js 16 + React 19
 ├── Tailwind CSS v4
-└── 17페이지 실시간 대시보드
+└── 19페이지 실시간 대시보드
 ```
 
 ### 패키지 구성
@@ -39,8 +42,8 @@ Dashboard (:48391) ◄── WebSocket ── Backend
 |--------|------|
 | `@claudeops/shared` | 공유 타입, 상수, 유틸리티 |
 | `@claudeops/backend` | Fastify REST API + WebSocket 서버 |
-| `@claudeops/mcp-server` | MCP 프로토콜 서버 (47개 도구) |
-| `@claudeops/dashboard` | Next.js 15 운영 대시보드 |
+| `@claudeops/mcp-server` | MCP 프로토콜 서버 (89개 도구) |
+| `@claudeops/dashboard` | Next.js 16 운영 대시보드 |
 | `@claudeops/cli` | 서비스 관리 CLI |
 
 ## 요구사항
@@ -192,27 +195,28 @@ claudeops worktree context set --project <path> --type <type> --title <title> --
 claudeops worktree context get --project <path> [--type <type>]
 ```
 
-## MCP 도구 (47개)
+## MCP 도구 (89개)
 
 | 카테고리 | 도구 | 수 |
 |----------|------|----|
 | **세션** | create_session, end_session, get_session, list_sessions, search_sessions | 5 |
-| **에이전트** | record_agent, list_agents, get_agent_performance | 3 |
-| **이벤트** | record_event, list_events, get_event_timeline | 3 |
-| **분석** | record_token_usage, get_token_summary, get_cost_analysis, get_dashboard_summary, analyze_session_patterns | 5 |
-| **설정** | get_config, update_config, set_budget_alert, check_budget | 4 |
-| **내보내기** | export_data | 1 |
-| **시스템** | health_check, get_service_status, get_system_info, cleanup_old_data | 4 |
-| **태스크** | create_task, update_task, list_tasks, move_task, get_task_board, link_session_to_task | 6 |
+| **에이전트** | record_agent, list_agents, get_agent_performance, get_agent_stats | 4 |
+| **이벤트** | record_event, list_events, get_event_timeline, record_tool_use, list_tool_events, get_tool_stats, record_prompt | 7 |
+| **분석** | record_token_usage, get_token_summary, get_cost_analysis, get_dashboard_summary, analyze_session_patterns, get_model_costs, get_budget_status | 7 |
+| **설정** | get_config, update_config, set_budget_alert, check_budget, set_model_price, get_system_info | 6 |
+| **태스크** | create_task, update_task, list_tasks, move_task, get_task_board, link_session_to_task, set_task_branch, execute_task, design_task, approve_design, implement_task, verify_task, get_verification, scan_task_commits, get_task_commits, auto_branch, get_scope_proposal, scope_split | 18 |
 | **PRD** | create_prd, list_prds, update_prd | 3 |
-| **에픽** | create_epic, list_epics, update_epic | 3 |
+| **에픽** | create_epic, list_epics, update_epic, get_epic, link_epic_tasks | 5 |
+| **파이프라인** | create_pipeline, list_pipelines, get_pipeline, execute_pipeline, cancel_pipeline, get_pipeline_status, get_presets | 7 |
+| **팀/페르소나** | list_personas, create_persona, update_persona, delete_persona, create_team, list_teams, get_team, clone_team, archive_team, add_agent_to_team, remove_agent_from_team, assign_team_to_task, unassign_team_from_task, list_team_templates, get_workload | 15 |
 | **리포트** | generate_session_report, generate_standup | 2 |
-| **GitHub** | sync_epic_to_github, sync_task_to_github, post_report_to_github | 3 |
+| **GitHub** | sync_epic_to_github, sync_task_to_github, post_report_to_github, get_github_config, setup_github, sync_all | 6 |
 | **Worktree** | create_worktree, list_worktrees, merge_worktree, set_project_context, get_project_context | 5 |
+| **프로젝트** | resolve_project_path | 1 |
 
 모든 도구는 `claudeops_` 접두사로 시작합니다 (예: `claudeops_create_session`).
 
-## 대시보드 (17페이지)
+## 대시보드 (19페이지)
 
 `http://localhost:48391`
 
@@ -225,8 +229,11 @@ claudeops worktree context get --project <path> [--type <type>]
 | `/tokens` | 토큰 & 비용 (입력/출력, 예산 현황, 모델별) |
 | `/tools` | 도구 분석 |
 | `/events` | 실시간 이벤트 |
-| `/tasks` | 칸반 보드 (백로그/할 일/진행 중/리뷰/완료) + Epic 필터 |
-| `/tasks/[id]` | 태스크 상세 + 변경 이력 |
+| `/tasks` | 칸반 보드 (백로그/할 일/진행 중/리뷰/완료) + Epic/팀 필터 |
+| `/tasks/[id]` | 태스크 상세 + 설계/구현/검증 워크플로우 + 팀 배정 |
+| `/pipelines` | 파이프라인 목록 + 프리셋 템플릿 |
+| `/pipelines/[id]` | 파이프라인 편집기 (React Flow) + 실행 모니터링 |
+| `/teams` | 에이전트 팀 관리 (페르소나, 역할 배정, 워크로드) |
 | `/prds` | PRD 목록 (상태 필터, 카드 뷰) |
 | `/prds/[id]` | PRD 상세 + 연결된 Epic 목록 |
 | `/epics` | Epic 목록 (진행률 바, PRD 링크) |
@@ -259,9 +266,9 @@ claudeops teardown
 | 빌드 | pnpm + Turborepo |
 | Backend | Fastify 5, @fastify/websocket, better-sqlite3 |
 | MCP | @modelcontextprotocol/sdk |
-| Dashboard | Next.js 15, React 19, Tailwind CSS v4, Zustand 5, React Query 5, Recharts |
+| Dashboard | Next.js 16, React 19, Tailwind CSS v4, React Query 5, @xyflow/react, Recharts |
 | CLI | Commander.js |
-| 언어 | TypeScript 5.7 |
+| 언어 | TypeScript 5.9 |
 
 ## 라이선스
 
