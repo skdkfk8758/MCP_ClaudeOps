@@ -13,6 +13,7 @@ export interface Epic {
   estimated_effort: string | null;
   github_issue_url: string | null;
   github_issue_number: number | null;
+  branch_name: string | null;
   created_at: string;
   updated_at: string;
   tasks?: import('./task.js').Task[];
@@ -32,4 +33,20 @@ export interface EpicCreate {
 export interface EpicUpdate extends Partial<EpicCreate> {
   status?: EpicStatus;
   progress?: number;
+}
+
+export interface EpicSession {
+  epic_id: number;
+  session_id: string;
+  task_id?: number;
+  linked_at: string;
+}
+
+export interface EpicSessionStats {
+  epic_id: number;
+  total_sessions: number;
+  total_token_input: number;
+  total_token_output: number;
+  total_cost_usd: number;
+  sessions: EpicSession[];
 }

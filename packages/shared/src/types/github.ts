@@ -25,3 +25,30 @@ export interface GitHubSyncLog {
   github_url: string | null;
   synced_at: string;
 }
+
+export interface PrdGitHubConfig {
+  id: number;
+  prd_id: number;
+  repo_owner: string;
+  repo_name: string;
+  default_branch: string;
+  enabled: boolean;
+  auto_sync: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PrdGitHubConfigCreate {
+  prd_id: number;
+  repo_owner: string;
+  repo_name: string;
+  default_branch?: string;
+}
+
+export interface PrdGitHubConfigUpdate {
+  repo_owner?: string;
+  repo_name?: string;
+  default_branch?: string;
+  enabled?: boolean;
+  auto_sync?: boolean;
+}

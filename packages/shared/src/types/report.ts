@@ -14,7 +14,7 @@ export interface SessionReport {
 export interface StandupReport {
   date: string;
   completed_tasks: import('./task.js').Task[];
-  in_progress_tasks: import('./task.js').Task[];
+  active_tasks: import('./task.js').Task[];
   sessions_today: number;
   tokens_today: { input: number; output: number };
   cost_today: number;

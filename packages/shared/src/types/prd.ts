@@ -10,6 +10,7 @@ export interface Prd {
   success_criteria: string[] | null;
   constraints: string | null;
   out_of_scope: string | null;
+  project_path: string | null;
   github_issue_url: string | null;
   github_issue_number: number | null;
   created_at: string;
@@ -27,6 +28,7 @@ export interface PrdCreate {
   success_criteria?: string[];
   constraints?: string;
   out_of_scope?: string;
+  project_path?: string;
 }
 
 export interface PrdUpdate extends Partial<PrdCreate> {
