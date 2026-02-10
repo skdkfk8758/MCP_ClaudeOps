@@ -5,6 +5,8 @@ import { apiFetch } from '@/lib/api';
 import { useState } from 'react';
 import { useGitHubConfig, useUpdateGitHubConfig } from '@/lib/hooks/use-github';
 import { useProjectContexts, useSetProjectContext, useDeleteProjectContext } from '@/lib/hooks/use-contexts';
+import { useAppFilterStore } from '@/stores/app-filter-store';
+import { RefreshCw, Server, FilterX } from 'lucide-react';
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -28,6 +30,11 @@ export default function SettingsPage() {
   const setContextMutation = useSetProjectContext();
   const deleteContextMutation = useDeleteProjectContext();
 
+  const resetAllFilters = useAppFilterStore((s) => s.resetAllFilters);
+  const totalFilterCount = useAppFilterStore((s) =>
+    s.getActiveFilterCount('taskBoard') + s.getActiveFilterCount('pipelines') + s.getActiveFilterCount('epics') + s.getActiveFilterCount('prds')
+  );
+
   const [contextType, setContextType] = useState('brief');
   const [contextTitle, setContextTitle] = useState('');
   const [contextContent, setContextContent] = useState('');
@@ -40,9 +47,108 @@ export default function SettingsPage() {
 
   const updateGithubConfig = useUpdateGitHubConfig();
 
+  const { data: serverStatus, refetch: refetchStatus } = useQuery({
+    queryKey: ['server-status'],
+    queryFn: () => apiFetch<{ status: string; uptime_seconds: number; pid: number; node_version: string; memory_mb: number; timestamp: string }>('/api/server/status'),
+    refetchInterval: 10_000,
+  });
+
+  const restartMutation = useMutation({
+    mutationFn: () => apiFetch('/api/server/restart', { method: 'POST' }),
+    onSuccess: () => {
+      // Poll until server is back
+      const poll = setInterval(async () => {
+        try {
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:48390'}/api/server/status`);
+          clearInterval(poll);
+          queryClient.invalidateQueries({ queryKey: ['server-status'] });
+        } catch { /* server still restarting */ }
+      }, 1000);
+    },
+  });
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    if (h > 0) return `${h}시간 ${m}분`;
+    if (m > 0) return `${m}분 ${s}초`;
+    return `${s}초`;
+  };
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">설정</h1>
+
+      {/* 필터 초기화 */}
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><FilterX className="h-5 w-5" /> 필터 관리</h2>
+        <p className="text-sm text-muted-foreground mb-4">
+          모든 페이지의 필터 설정이 브라우저에 저장됩니다.
+          {totalFilterCount > 0
+            ? ` 현재 ${totalFilterCount}개의 활성 필터가 있습니다.`
+            : ' 현재 활성 필터가 없습니다.'}
+        </p>
+        <button
+          onClick={resetAllFilters}
+          disabled={totalFilterCount === 0}
+          className="cursor-pointer flex items-center gap-2 rounded-md bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <FilterX className="h-3.5 w-3.5" />
+          모든 필터 초기화
+        </button>
+      </div>
+
+      {/* Server Management */}
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Server className="h-5 w-5" /> 서버 관리</h2>
+        {serverStatus ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-4">
+            <div className="rounded-md border border-border p-3">
+              <p className="text-xs text-muted-foreground">상태</p>
+              <p className="font-medium mt-1 flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-full bg-green-400 inline-block" />
+                실행 중
+              </p>
+            </div>
+            <div className="rounded-md border border-border p-3">
+              <p className="text-xs text-muted-foreground">업타임</p>
+              <p className="font-medium mt-1">{formatUptime(serverStatus.uptime_seconds)}</p>
+            </div>
+            <div className="rounded-md border border-border p-3">
+              <p className="text-xs text-muted-foreground">메모리</p>
+              <p className="font-medium mt-1">{serverStatus.memory_mb} MB</p>
+            </div>
+            <div className="rounded-md border border-border p-3">
+              <p className="text-xs text-muted-foreground">PID / Node</p>
+              <p className="font-medium mt-1">{serverStatus.pid} / {serverStatus.node_version}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="animate-pulse h-16 rounded-lg bg-muted mb-4" />
+        )}
+        <div className="flex gap-3">
+          <button
+            onClick={() => refetchStatus()}
+            className="cursor-pointer flex items-center gap-2 rounded-md border border-input px-4 py-2 text-sm hover:bg-accent transition-colors"
+          >
+            <RefreshCw className="h-3.5 w-3.5" /> 상태 새로고침
+          </button>
+          <button
+            onClick={() => {
+              if (confirm('백엔드 서버를 재시작하시겠습니까? API가 약 2초간 중단됩니다.')) {
+                restartMutation.mutate();
+              }
+            }}
+            disabled={restartMutation.isPending}
+            className="cursor-pointer flex items-center gap-2 rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white hover:bg-orange-700 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${restartMutation.isPending ? 'animate-spin' : ''}`} />
+            {restartMutation.isPending ? '재시작 중...' : '서버 재시작'}
+          </button>
+        </div>
+      </div>
+
       <div className="rounded-lg border border-border bg-card p-6">
         <h2 className="text-lg font-semibold mb-4">현재 가격 ($/MTok)</h2>
         <div className="grid grid-cols-3 gap-4">

@@ -8,6 +8,7 @@ export function PrdCreateDialog({ open, onClose }: { open: boolean; onClose: () 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [vision, setVision] = useState('');
+  const [projectPath, setProjectPath] = useState('');
   const createPrd = useCreatePrd();
 
   if (!open) return null;
@@ -19,9 +20,10 @@ export function PrdCreateDialog({ open, onClose }: { open: boolean; onClose: () 
       title: title.trim(),
       description: description.trim() || undefined,
       vision: vision.trim() || undefined,
+      project_path: projectPath.trim() || undefined,
     }, {
       onSuccess: () => {
-        setTitle(''); setDescription(''); setVision('');
+        setTitle(''); setDescription(''); setVision(''); setProjectPath('');
         onClose();
       },
     });
@@ -51,6 +53,11 @@ export function PrdCreateDialog({ open, onClose }: { open: boolean; onClose: () 
             <label htmlFor="prd-desc" className="text-sm text-muted-foreground block mb-1">설명</label>
             <textarea id="prd-desc" value={description} onChange={(e) => setDescription(e.target.value)} rows={3}
               className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="PRD 설명..." />
+          </div>
+          <div>
+            <label htmlFor="prd-project-path" className="text-sm text-muted-foreground block mb-1">프로젝트 경로</label>
+            <input id="prd-project-path" type="text" value={projectPath} onChange={(e) => setProjectPath(e.target.value)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="/path/to/project" />
           </div>
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="cursor-pointer rounded-md px-4 py-2 text-sm hover:bg-accent transition-colors">취소</button>

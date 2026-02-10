@@ -5,6 +5,8 @@ import { useEpics } from '@/lib/hooks/use-epics';
 import { usePrds } from '@/lib/hooks/use-prds';
 import { EpicCard } from '@/components/epics/epic-card';
 import { EpicCreateDialog } from '@/components/epics/epic-create-dialog';
+import { useAppFilterStore } from '@/stores/app-filter-store';
+import { FilterResetButton } from '@/components/shared/filter-reset-button';
 import { Plus } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -17,8 +19,12 @@ const STATUS_TABS = [
 
 export default function EpicsPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedPrdId, setSelectedPrdId] = useState<number | undefined>();
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const epicFilters = useAppFilterStore((s) => s.epics);
+  const setEpicFilter = useAppFilterStore((s) => s.setEpicFilter);
+  const resetEpicFilters = useAppFilterStore((s) => s.resetEpicFilters);
+  const epicFilterCount = useAppFilterStore((s) => s.getActiveFilterCount('epics'));
+  const selectedPrdId = epicFilters.prd_id;
+  const selectedStatus = epicFilters.status ?? '';
   const { data } = useEpics(selectedPrdId, selectedStatus || undefined);
   const { data: prdsData } = usePrds();
 
@@ -37,7 +43,7 @@ export default function EpicsPage() {
 
       <div className="flex items-center gap-4">
         <div className="flex-1">
-          <select value={selectedPrdId || ''} onChange={(e) => setSelectedPrdId(e.target.value ? parseInt(e.target.value) : undefined)}
+          <select value={selectedPrdId || ''} onChange={(e) => setEpicFilter({ prd_id: e.target.value ? parseInt(e.target.value) : undefined })}
             className="w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm">
             <option value="">모든 PRD</option>
             {prdsData?.items.map((prd) => (
@@ -49,7 +55,7 @@ export default function EpicsPage() {
 
       <div className="flex gap-2 border-b border-border">
         {STATUS_TABS.map((tab) => (
-          <button key={tab.value} onClick={() => setSelectedStatus(tab.value)}
+          <button key={tab.value} onClick={() => setEpicFilter({ status: tab.value || undefined })}
             className={`cursor-pointer px-4 py-2 text-sm font-medium transition-colors ${
               selectedStatus === tab.value
                 ? 'border-b-2 border-primary text-primary'
@@ -58,6 +64,7 @@ export default function EpicsPage() {
             {tab.label}
           </button>
         ))}
+        <FilterResetButton activeCount={epicFilterCount} onReset={resetEpicFilters} />
       </div>
 
       {!data ? (

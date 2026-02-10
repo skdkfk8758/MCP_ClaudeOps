@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Monitor, Bot, Coins, Wrench, Activity, Settings, ClipboardList,
-  FileText, Layers, FileBarChart, GitBranch, Users,
+  FileText, Layers, FileBarChart, GitBranch, Users, Workflow,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -28,6 +28,7 @@ export const navGroups: NavGroup[] = [
       { href: '/prds', label: '제품 요구사항 (PRD)', icon: FileText },
       { href: '/epics', label: '실행 단위 (에픽)', icon: Layers },
       { href: '/tasks', label: '작업 보드', icon: ClipboardList },
+      { href: '/pipelines', label: '파이프라인', icon: Workflow },
       { href: '/worktrees', label: '개발 브랜치', icon: GitBranch },
     ],
   },

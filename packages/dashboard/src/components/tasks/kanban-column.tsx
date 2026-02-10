@@ -6,7 +6,9 @@ import { TaskCard } from './task-card';
 const STATUS_LABELS: Record<string, string> = {
   backlog: '백로그',
   todo: '할 일',
-  in_progress: '진행 중',
+  design: '설계',
+  implementation: '구현',
+  verification: '검증',
   review: '리뷰',
   done: '완료',
 };
@@ -14,7 +16,9 @@ const STATUS_LABELS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
   backlog: 'border-t-gray-400',
   todo: 'border-t-blue-400',
-  in_progress: 'border-t-yellow-400',
+  design: 'border-t-cyan-400',
+  implementation: 'border-t-yellow-400',
+  verification: 'border-t-orange-400',
   review: 'border-t-purple-400',
   done: 'border-t-green-400',
 };

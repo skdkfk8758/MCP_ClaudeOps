@@ -22,7 +22,7 @@ export function usePrd(id: number) {
 export function useCreatePrd() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: { title: string; description?: string; vision?: string; user_stories?: string[]; success_criteria?: string[] }) =>
+    mutationFn: (data: { title: string; description?: string; vision?: string; user_stories?: string[]; success_criteria?: string[]; project_path?: string }) =>
       apiFetch<Prd>('/api/prds', { method: 'POST', body: JSON.stringify(data) }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['prds'] });

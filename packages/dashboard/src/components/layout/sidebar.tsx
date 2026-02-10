@@ -5,11 +5,20 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { navGroups } from './nav-items';
 import { useUiStore } from '@/stores/ui-store';
+import { useAppFilterStore } from '@/stores/app-filter-store';
 import { ChevronLeft, ChevronRight, ChevronDown } from 'lucide-react';
+
+const FILTER_BADGE_MAP: Record<string, 'taskBoard' | 'pipelines' | 'epics' | 'prds'> = {
+  '/tasks': 'taskBoard',
+  '/pipelines': 'pipelines',
+  '/epics': 'epics',
+  '/prds': 'prds',
+};
 
 export function Sidebar() {
   const pathname = usePathname();
   const { sidebarCollapsed, toggleSidebar, collapsedGroups, toggleGroup } = useUiStore();
+  const getActiveFilterCount = useAppFilterStore((s) => s.getActiveFilterCount);
 
   return (
     <aside className={cn(
@@ -47,6 +56,8 @@ export function Sidebar() {
               {(!isCollapsed || sidebarCollapsed) && group.items.map((item) => {
                 const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));
                 const Icon = item.icon;
+                const filterPage = FILTER_BADGE_MAP[item.href];
+                const filterCount = filterPage ? getActiveFilterCount(filterPage) : 0;
                 return (
                   <Link
                     key={item.href}
@@ -60,7 +71,16 @@ export function Sidebar() {
                     )}
                   >
                     <Icon className="h-4 w-4 shrink-0" />
-                    {!sidebarCollapsed && <span>{item.label}</span>}
+                    {!sidebarCollapsed && (
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {filterCount > 0 && (
+                          <span className="ml-auto rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-primary">
+                            {filterCount}
+                          </span>
+                        )}
+                      </>
+                    )}
                   </Link>
                 );
               })}

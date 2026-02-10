@@ -6,7 +6,7 @@ import { ClipboardList, PlayCircle, CheckCircle, Clock } from 'lucide-react';
 export function WorkloadStats({ workload }: { workload: MemberWorkload }) {
   const stats = [
     { label: '총 작업', value: workload.total_tasks, icon: ClipboardList, color: 'text-blue-400' },
-    { label: '진행 중', value: workload.by_status?.in_progress ?? 0, icon: PlayCircle, color: 'text-yellow-400' },
+    { label: '진행 중', value: (workload.by_status?.design ?? 0) + (workload.by_status?.implementation ?? 0), icon: PlayCircle, color: 'text-yellow-400' },
     { label: '완료', value: workload.by_status?.done ?? 0, icon: CheckCircle, color: 'text-green-400' },
     { label: '대기', value: (workload.by_status?.backlog ?? 0) + (workload.by_status?.todo ?? 0), icon: Clock, color: 'text-gray-400' },
   ];

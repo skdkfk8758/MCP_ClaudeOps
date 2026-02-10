@@ -6,7 +6,7 @@ import type { Task } from '@claudeops/shared';
 import Link from 'next/link';
 
 const STATUS_LABELS: Record<string, string> = {
-  backlog: '백로그', todo: '할 일', in_progress: '진행 중', review: '리뷰', done: '완료',
+  backlog: '백로그', todo: '할 일', design: '설계', implementation: '구현', review: '리뷰', done: '완료',
 };
 const PRIORITY_COLORS: Record<string, string> = {
   P0: 'text-red-400', P1: 'text-orange-400', P2: 'text-yellow-400', P3: 'text-gray-400',

@@ -1,6 +1,6 @@
 import { WS_URL } from './constants';
 
-type MessageHandler = (data: unknown) => void;
+type MessageHandler = (data: unknown, action?: string) => void;
 
 class WsClient {
   private ws: WebSocket | null = null;
@@ -22,7 +22,7 @@ class WsClient {
         const msg = JSON.parse(event.data as string);
         const handlers = this.handlers.get(msg.type);
         if (handlers) {
-          for (const handler of handlers) handler(msg.data);
+          for (const handler of handlers) handler(msg.data, msg.action);
         }
       } catch { /* ignore */ }
     };

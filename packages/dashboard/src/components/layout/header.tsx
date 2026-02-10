@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useTheme } from 'next-themes';
 import { Sun, Moon } from 'lucide-react';
 import { useUiStore } from '@/stores/ui-store';
@@ -8,6 +9,9 @@ import { cn } from '@/lib/utils';
 export function Header() {
   const { theme, setTheme } = useTheme();
   const { sidebarCollapsed } = useUiStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   return (
     <header className={cn(
@@ -20,7 +24,7 @@ export function Header() {
         className="cursor-pointer rounded-md p-2 hover:bg-accent transition-colors duration-200"
         aria-label="테마 전환"
       >
-        {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+        {mounted ? (theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />) : <div className="h-4 w-4" />}
       </button>
     </header>
   );

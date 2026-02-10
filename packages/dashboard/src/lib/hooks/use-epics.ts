@@ -55,3 +55,11 @@ export function useDeleteEpic() {
     },
   });
 }
+
+export function useEpicSessions(epicId: number) {
+  return useQuery({
+    queryKey: ['epics', epicId, 'sessions'],
+    queryFn: () => apiFetch<import('@claudeops/shared').EpicSessionStats>(`/api/epics/${epicId}/sessions`),
+    enabled: epicId > 0,
+  });
+}

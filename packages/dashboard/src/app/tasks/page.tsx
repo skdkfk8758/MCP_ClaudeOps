@@ -3,15 +3,17 @@
 import { useState } from 'react';
 import { KanbanBoard } from '@/components/tasks/kanban-board';
 import { TaskCreateDialog } from '@/components/tasks/task-create-dialog';
+import { BoardFiltersToolbar } from '@/components/tasks/board-filters';
 import { useTaskStats } from '@/lib/hooks/use-tasks';
-import { useEpics } from '@/lib/hooks/use-epics';
+import { useAppFilterStore } from '@/stores/app-filter-store';
 import { Plus } from 'lucide-react';
 
 export default function TasksPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedEpicId, setSelectedEpicId] = useState<number | undefined>();
+  const filters = useAppFilterStore((s) => s.taskBoard);
+  const setFilters = useAppFilterStore((s) => s.setTaskBoardFilter);
+  const resetFilters = useAppFilterStore((s) => s.resetTaskBoardFilters);
   const { data: stats } = useTaskStats();
-  const { data: epicsData } = useEpics();
 
   return (
     <div className="space-y-6">
@@ -25,17 +27,8 @@ export default function TasksPage() {
           <Plus className="h-4 w-4" /> 새 작업
         </button>
       </div>
-      <div className="flex items-center gap-4">
-        <label htmlFor="epic-filter" className="text-sm text-muted-foreground">에픽 필터:</label>
-        <select id="epic-filter" value={selectedEpicId || ''} onChange={(e) => setSelectedEpicId(e.target.value ? parseInt(e.target.value) : undefined)}
-          className="max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm">
-          <option value="">모든 에픽</option>
-          {epicsData?.items.map((epic) => (
-            <option key={epic.id} value={epic.id}>{epic.title}</option>
-          ))}
-        </select>
-      </div>
-      <KanbanBoard />
+      <BoardFiltersToolbar filters={filters} onChange={(next) => { resetFilters(); setFilters(next); }} />
+      <KanbanBoard filters={filters} />
       <TaskCreateDialog open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );

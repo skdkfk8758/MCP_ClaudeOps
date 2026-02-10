@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { usePrds } from '@/lib/hooks/use-prds';
 import { PrdCard } from '@/components/prds/prd-card';
 import { PrdCreateDialog } from '@/components/prds/prd-create-dialog';
+import { useAppFilterStore } from '@/stores/app-filter-store';
+import { FilterResetButton } from '@/components/shared/filter-reset-button';
 import { Plus } from 'lucide-react';
 
 const STATUS_TABS = [
@@ -16,7 +18,10 @@ const STATUS_TABS = [
 
 export default function PrdsPage() {
   const [createOpen, setCreateOpen] = useState(false);
-  const [selectedStatus, setSelectedStatus] = useState('');
+  const selectedStatus = useAppFilterStore((s) => s.prds.status) ?? '';
+  const setPrdFilter = useAppFilterStore((s) => s.setPrdFilter);
+  const resetPrdFilters = useAppFilterStore((s) => s.resetPrdFilters);
+  const prdFilterCount = useAppFilterStore((s) => s.getActiveFilterCount('prds'));
   const { data } = usePrds(selectedStatus || undefined);
 
   return (
@@ -34,7 +39,7 @@ export default function PrdsPage() {
 
       <div className="flex gap-2 border-b border-border">
         {STATUS_TABS.map((tab) => (
-          <button key={tab.value} onClick={() => setSelectedStatus(tab.value)}
+          <button key={tab.value} onClick={() => setPrdFilter({ status: tab.value || undefined })}
             className={`cursor-pointer px-4 py-2 text-sm font-medium transition-colors ${
               selectedStatus === tab.value
                 ? 'border-b-2 border-primary text-primary'
@@ -43,6 +48,7 @@ export default function PrdsPage() {
             {tab.label}
           </button>
         ))}
+        <FilterResetButton activeCount={prdFilterCount} onReset={resetPrdFilters} />
       </div>
 
       {!data ? (

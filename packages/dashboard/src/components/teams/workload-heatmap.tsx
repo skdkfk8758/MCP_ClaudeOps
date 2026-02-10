@@ -3,9 +3,9 @@
 import type { TeamWorkload } from '@claudeops/shared';
 
 const STATUS_LABELS: Record<string, string> = {
-  backlog: '백로그', todo: '할일', in_progress: '진행중', review: '리뷰', done: '완료',
+  backlog: '백로그', todo: '할일', design: '설계', implementation: '구현', review: '리뷰', done: '완료',
 };
-const STATUSES = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+const STATUSES = ['backlog', 'todo', 'design', 'implementation', 'review', 'done'];
 
 export function WorkloadHeatmap({ workload }: { workload: TeamWorkload }) {
   const maxVal = Math.max(1, ...workload.members.flatMap(m => STATUSES.map(s => m.by_status[s] ?? 0)));

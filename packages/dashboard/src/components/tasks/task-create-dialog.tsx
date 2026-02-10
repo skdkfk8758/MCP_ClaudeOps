@@ -87,7 +87,8 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
                 <option value="backlog">백로그</option>
                 <option value="todo">할 일</option>
-                <option value="in_progress">진행 중</option>
+                <option value="design">설계</option>
+                <option value="implementation">구현</option>
                 <option value="review">리뷰</option>
                 <option value="done">완료</option>
               </select>

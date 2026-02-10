@@ -2,13 +2,13 @@
 
 import { useCallback } from 'react';
 import type { Task, TaskStatus } from '@claudeops/shared';
-import { useTaskBoard, useMoveTask } from '@/lib/hooks/use-tasks';
+import { useTaskBoard, useMoveTask, type BoardFilters } from '@/lib/hooks/use-tasks';
 import { KanbanColumn } from './kanban-column';
 
-const COLUMNS: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'review', 'done'];
+const COLUMNS: TaskStatus[] = ['backlog', 'todo', 'design', 'implementation', 'verification', 'review', 'done'];
 
-export function KanbanBoard() {
-  const { data: board, isLoading } = useTaskBoard();
+export function KanbanBoard({ filters }: { filters?: BoardFilters }) {
+  const { data: board, isLoading } = useTaskBoard(filters);
   const moveTask = useMoveTask();
 
   const handleDragStart = useCallback((e: React.DragEvent, task: Task) => {
@@ -33,7 +33,7 @@ export function KanbanBoard() {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-5 gap-4">
+      <div className="grid grid-cols-7 gap-3">
         {COLUMNS.map((col) => (
           <div key={col} className="h-96 animate-pulse rounded-lg bg-muted" />
         ))}
@@ -42,7 +42,7 @@ export function KanbanBoard() {
   }
 
   return (
-    <div className="grid grid-cols-5 gap-4">
+    <div className="grid grid-cols-7 gap-3">
       {COLUMNS.map((status) => (
         <KanbanColumn
           key={status}

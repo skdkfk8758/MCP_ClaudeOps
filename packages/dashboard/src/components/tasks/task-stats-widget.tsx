@@ -15,10 +15,10 @@ export function TaskStatsWidget() {
           <h2 className="text-lg font-semibold">작업 현황</h2>
           <ClipboardList className="h-5 w-5 text-muted-foreground" />
         </div>
-        <div className="grid grid-cols-5 gap-2 text-center">
-          {(['backlog', 'todo', 'in_progress', 'review', 'done'] as const).map((status) => {
-            const labels: Record<string, string> = { backlog: '백로그', todo: '할 일', in_progress: '진행 중', review: '리뷰', done: '완료' };
-            const colors: Record<string, string> = { backlog: 'text-gray-400', todo: 'text-blue-400', in_progress: 'text-yellow-400', review: 'text-purple-400', done: 'text-green-400' };
+        <div className="grid grid-cols-6 gap-2 text-center">
+          {(['backlog', 'todo', 'design', 'implementation', 'review', 'done'] as const).map((status) => {
+            const labels: Record<string, string> = { backlog: '백로그', todo: '할 일', design: '설계', implementation: '구현', review: '리뷰', done: '완료' };
+            const colors: Record<string, string> = { backlog: 'text-gray-400', todo: 'text-blue-400', design: 'text-cyan-400', implementation: 'text-yellow-400', review: 'text-purple-400', done: 'text-green-400' };
             return (
               <div key={status}>
                 <p className={`text-xl font-bold ${colors[status]}`}>{stats.by_status[status] ?? 0}</p>
