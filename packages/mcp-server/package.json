@@ -13,16 +13,18 @@
     "build": "tsup src/index.ts --format esm --dts --clean",
     "dev": "tsup src/index.ts --format esm --watch",
     "lint": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@claudeops/shared": "workspace:*",
-    "zod": "^3.23.0"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
-    "tsup": "^8.3.0",
-    "typescript": "^5.7.0",
-    "@types/node": "^22.0.0"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "@types/node": "^25.2.2"
   }
 }

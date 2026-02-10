@@ -14,7 +14,8 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 const STATUS_COLORS: Record<string, string> = {
   backlog: '\x1b[90m',
   todo: '\x1b[36m',
-  in_progress: '\x1b[33m',
+  design: '\x1b[96m',
+  implementation: '\x1b[33m',
   review: '\x1b[35m',
   done: '\x1b[32m',
 };
@@ -30,7 +31,7 @@ export function registerTaskCommand(program: Command): void {
     .command('create <title>')
     .description('Create a new task')
     .option('-d, --description <text>', 'Description')
-    .option('-s, --status <status>', 'Status (backlog|todo|in_progress|review|done)', 'backlog')
+    .option('-s, --status <status>', 'Status (backlog|todo|design|implementation|review|done)', 'backlog')
     .option('-p, --priority <priority>', 'Priority (P0|P1|P2|P3)', 'P2')
     .option('-a, --assignee <name>', 'Assignee')
     .option('-l, --label <labels...>', 'Labels')
@@ -107,8 +108,8 @@ export function registerTaskCommand(program: Command): void {
     .action(async () => {
       try {
         const board = await apiFetch<Record<string, Array<{ id: number; title: string; priority: string; assignee: string | null }>>>('/api/tasks/board');
-        const columns = ['backlog', 'todo', 'in_progress', 'review', 'done'];
-        const labels: Record<string, string> = { backlog: 'Backlog', todo: 'To Do', in_progress: 'In Progress', review: 'Review', done: 'Done' };
+        const columns = ['backlog', 'todo', 'design', 'implementation', 'review', 'done'];
+        const labels: Record<string, string> = { backlog: 'Backlog', todo: 'To Do', design: 'Design', implementation: 'Implementation', review: 'Review', done: 'Done' };
         console.log('\n\x1b[34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m');
         console.log('\x1b[34m  ClaudeOps - Task Board\x1b[0m');
         console.log('\x1b[34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n');

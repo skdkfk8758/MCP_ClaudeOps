@@ -15,6 +15,7 @@ export function registerPrdTools(server: McpServer): void {
       success_criteria: z.array(z.string()).optional().describe('Success criteria'),
       constraints: z.string().optional().describe('Constraints and limitations'),
       out_of_scope: z.string().optional().describe('Out of scope items'),
+      project_path: z.string().optional().describe('Project directory path for task execution'),
     },
     async (params) => {
       const result = await apiPost('/api/prds', params);
@@ -52,6 +53,7 @@ export function registerPrdTools(server: McpServer): void {
       success_criteria: z.array(z.string()).optional().describe('Replace success criteria'),
       constraints: z.string().optional().describe('New constraints'),
       out_of_scope: z.string().optional().describe('New out of scope'),
+      project_path: z.string().optional().describe('Project directory path for task execution'),
     },
     async ({ prd_id, ...updates }) => {
       const result = await apiRequest(`/api/prds/${prd_id}`, { method: 'PATCH', body: updates });

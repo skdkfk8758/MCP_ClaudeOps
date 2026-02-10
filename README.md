@@ -163,7 +163,7 @@ claudeops upgrade      # 글로벌 업데이트 + 등록 프로젝트 재설정
 claudeops list         # 등록된 프로젝트 목록 조회
 
 claudeops task create "제목" --priority P1 --label feature
-claudeops task list --status in_progress
+claudeops task list --status implementation
 claudeops task update <id> --status done
 claudeops task board   # 터미널 칸반 보드
 claudeops task link <task_id> <session_id>

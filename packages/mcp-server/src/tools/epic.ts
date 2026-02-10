@@ -52,10 +52,41 @@ export function registerEpicTools(server: McpServer): void {
       architecture_notes: z.string().optional().describe('New architecture notes'),
       tech_approach: z.string().optional().describe('New tech approach'),
       estimated_effort: z.enum(['S', 'M', 'L', 'XL']).optional().describe('New effort estimate'),
+      branch_name: z.string().optional().describe('Branch name to associate with this epic'),
     },
     async ({ epic_id, ...updates }) => {
       const result = await apiRequest(`/api/epics/${epic_id}`, { method: 'PATCH', body: updates });
       return formatToolResponse(result, 'Epic Updated');
+    }
+  );
+
+  server.tool(
+    'claudeops_set_epic_branch',
+    'Set or remove a branch name for an Epic',
+    {
+      epic_id: z.number().int().describe('Epic ID'),
+      branch_name: z.string().optional().describe('Branch name (omit to remove)'),
+    },
+    async ({ epic_id, branch_name }) => {
+      if (branch_name) {
+        const result = await apiPost(`/api/epics/${epic_id}/branch`, { branch_name });
+        return formatToolResponse(result, 'Epic Branch Set');
+      } else {
+        const result = await apiRequest(`/api/epics/${epic_id}/branch`, { method: 'DELETE' });
+        return formatToolResponse(result, 'Epic Branch Removed');
+      }
+    }
+  );
+
+  server.tool(
+    'claudeops_epic_sessions',
+    'Get session statistics for an Epic including total sessions, token usage, and cost',
+    {
+      epic_id: z.number().int().describe('Epic ID'),
+    },
+    async ({ epic_id }) => {
+      const result = await apiGet(`/api/epics/${epic_id}/sessions`);
+      return formatToolResponse(result, 'Epic Sessions');
     }
   );
 }

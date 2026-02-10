@@ -1,6 +1,6 @@
 import { execSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import {
   getMonorepoRoot, getBackendDir, getDashboardDir, getMcpServerDist,
   getPidDir, getDataDir, BACKEND_PORT, DASHBOARD_PORT, BACKEND_URL, DASHBOARD_URL,
@@ -37,7 +37,7 @@ export async function setup(): Promise<void> {
   console.log('\x1b[34m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m\n');
 
   // Step 1: Pre-flight
-  log('Step 1/6: Pre-flight checks...');
+  log('Step 1/7: Pre-flight checks...');
   try {
     const nodeVersion = execSync('node -v', { encoding: 'utf-8' }).trim();
     const major = parseInt(nodeVersion.replace('v', '').split('.')[0], 10);
@@ -56,7 +56,7 @@ export async function setup(): Promise<void> {
   if (dashboardPort.inUse) { warn(`Port ${DASHBOARD_PORT} in use (pid ${dashboardPort.pid}) — reusing`); needDashboard = false; }
 
   // Step 2: Build
-  log('Step 2/6: Building packages...');
+  log('Step 2/7: Building packages...');
   try {
     execSync('pnpm turbo run build', { cwd: monorepoRoot, stdio: 'pipe' });
     ok('All packages built');
@@ -65,7 +65,7 @@ export async function setup(): Promise<void> {
   }
 
   // Step 3: Start services
-  log('Step 3/6: Starting services...');
+  log('Step 3/7: Starting services...');
   mkdirSync(pidDir, { recursive: true });
   mkdirSync(getDataDir(), { recursive: true });
 
@@ -109,7 +109,7 @@ export async function setup(): Promise<void> {
   }
 
   // Step 4: Register MCP Server
-  log('Step 4/6: Registering MCP Server...');
+  log('Step 4/7: Registering MCP Server...');
   const mcpServerDist = getMcpServerDist();
   if (!existsSync(mcpServerDist)) {
     warn('MCP Server dist not found — skipping registration');
@@ -132,7 +132,7 @@ export async function setup(): Promise<void> {
   }
 
   // Step 5: Install Hooks
-  log('Step 5/6: Installing hooks...');
+  log('Step 5/7: Installing hooks...');
   let hookSettings: Record<string, unknown> = {};
   if (existsSync(settingsPath)) {
     try { hookSettings = JSON.parse(readFileSync(settingsPath, 'utf-8')); } catch { /* fresh */ }
@@ -170,12 +170,82 @@ export async function setup(): Promise<void> {
   ok('8 hooks installed');
 
   // Step 6: Register project & verify
-  log('Step 6/6: Verification...');
+  log('Step 6/7: Verification...');
   registerProject(projectDir);
   ok(`Project registered: ${projectDir}`);
 
   if (waitForHealth(`${BACKEND_URL}/health`, 3)) ok('Backend API healthy');
   else warn('Backend API not responding');
+
+  // Step 7: Project Init (optional)
+  log('Step 7/7: Project initialization...');
+  const initConfigPath = join(projectDir, '.claudeops', 'project-init.json');
+  // init config 결정: 파일이 있으면 로드 + project_path 주입, 없으면 기초 PRD 자동 생성
+  let initConfig: Record<string, unknown> | null = null;
+  let initSource = '';
+
+  if (existsSync(initConfigPath)) {
+    try {
+      initConfig = JSON.parse(readFileSync(initConfigPath, 'utf-8'));
+      initSource = initConfigPath;
+      // PRD가 있고 project_path가 없으면 자동 주입
+      const prd = initConfig!.prd as Record<string, unknown> | undefined;
+      if (prd && !prd.project_path) {
+        prd.project_path = projectDir;
+      }
+    } catch (e) {
+      warn(`Failed to parse ${initConfigPath}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  } else {
+    // init.json 없으면 기초 PRD 자동 생성
+    const projectName = basename(projectDir);
+    initConfig = {
+      prd: {
+        title: projectName,
+        description: `${projectName} 프로젝트`,
+        project_path: projectDir,
+        status: 'active',
+      },
+    };
+    initSource = 'auto-generated';
+    log(`  No project-init.json found — creating default PRD for "${projectName}"`);
+  }
+
+  if (initConfig) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      try {
+        const response = await fetch(`${BACKEND_URL}/api/projects/init`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(initConfig),
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          const result = await response.json() as {
+            team?: { name: string; member_count: number };
+            prd?: { title: string };
+            epics: { title: string; task_count: number }[];
+            total_tasks: number;
+          };
+          ok(`Project initialized (${initSource})`);
+          if (result.team) ok(`  Team: ${result.team.name} (${result.team.member_count} members)`);
+          if (result.prd) ok(`  PRD: ${result.prd.title}`);
+          ok(`  Epics: ${result.epics.length}, Tasks: ${result.total_tasks}`);
+        } else {
+          const errBody = await response.text();
+          warn(`Project init failed: ${response.statusText} - ${errBody}`);
+        }
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        throw fetchErr;
+      }
+    } catch (e) {
+      warn(`Project init error: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   console.log('\n\x1b[32m━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\x1b[0m');
   console.log('\x1b[32m  ClaudeOps Setup Complete!\x1b[0m');

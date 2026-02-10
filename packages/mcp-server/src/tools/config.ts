@@ -57,4 +57,29 @@ export function registerConfigTools(server: McpServer): void {
       return formatToolResponse(result, 'Data Export', response_format);
     }
   );
+
+  server.tool(
+    'claudeops_server_status',
+    'Get ClaudeOps backend server status including uptime, memory, and PID',
+    {},
+    async () => {
+      const result = await apiGet('/api/server/status');
+      return formatToolResponse(result, 'Server Status');
+    }
+  );
+
+  server.tool(
+    'claudeops_restart_server',
+    'Restart the ClaudeOps backend server. The server will gracefully shutdown and respawn. API will be briefly unavailable (~2 seconds).',
+    {
+      confirm: z.boolean().describe('Must be true to confirm restart'),
+    },
+    async ({ confirm }) => {
+      if (!confirm) {
+        return { content: [{ type: 'text' as const, text: 'Restart cancelled. Set confirm=true to proceed.' }] };
+      }
+      const result = await apiPost('/api/server/restart', {});
+      return formatToolResponse(result, 'Server Restart');
+    }
+  );
 }
