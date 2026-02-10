@@ -10,8 +10,8 @@ import {
 
 function isPortInUse(port: number): boolean {
   try {
-    execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t 2>/dev/null | head -1`, { encoding: 'utf-8' });
-    return true;
+    const pid = execSync(`lsof -iTCP:${port} -sTCP:LISTEN -t 2>/dev/null | head -1`, { encoding: 'utf-8' }).trim();
+    return pid.length > 0;
   } catch { return false; }
 }
 
