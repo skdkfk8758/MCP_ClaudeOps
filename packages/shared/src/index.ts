@@ -15,7 +15,7 @@ export type { Epic, EpicCreate, EpicUpdate, EpicStatus, EpicEffort, EpicSession,
 export type { SessionReport, StandupReport, ReportType } from './types/report.js';
 export type { GitHubConfig, GitHubConfigUpdate, GitHubSyncLog, GitHubSyncAction, GitHubEntityType, PrdGitHubConfig, PrdGitHubConfigCreate, PrdGitHubConfigUpdate } from './types/github.js';
 export type { Worktree, WorktreeCreate, WorktreeList, WorktreeStatus } from './types/worktree.js';
-export type { Team, TeamCreate, TeamUpdate, TeamMember, MemberCreate, MemberUpdate, MemberRole, MemberStatus, TaskAssignment, MemberWorkload, TeamWorkload } from './types/team.js';
+export type { AgentCapability, PersonaSource, AgentPersona, AgentPersonaCreate, AgentPersonaUpdate, AgentRole, TeamAgent, TeamAgentCreate, TeamAgentUpdate, TeamStatus, Team, TeamCreate, TeamUpdate, TaskTeamAssignment, TaskTeamAssignmentCreate, TeamTemplateAgent, TeamTemplate, AgentWorkload, TeamWorkload } from './types/team.js';
 export type { ProjectContext, ProjectContextSet, ProjectContextQuery, ContextType } from './types/context.js';
 export type { ProjectInitConfig, ProjectInitResult, ProjectInitEpic, ProjectInitTask, ProjectInitMember } from './types/project-init.js';
 export type { AgentTier, AgentDefinition, PipelineNodeData, PipelineStep, PipelineStatus, Pipeline, PipelineCreate, PipelineUpdate, ExecutionStatus, StepStatus, PipelineStepResult, PipelineExecution, PipelineExecuteRequest, PipelinePreset } from './types/pipeline.js';
