@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { getGitHubConfig, updateGitHubConfig, listSyncLogs } from '../models/github.js';
+import { getPrdGitHubConfig, upsertPrdGitHubConfig, deletePrdGitHubConfig } from '../models/prd-github.js';
 import { syncEpicToGitHub, syncTaskToGitHub, postReportToGitHub } from '../services/github-sync.js';
 import { wsManager } from '../services/websocket.js';
 
@@ -67,5 +68,40 @@ export async function registerGitHubRoutes(app: FastifyInstance): Promise<void> 
       page_size: query.page_size ? parseInt(query.page_size, 10) : undefined,
     });
     return reply.send(result);
+  });
+
+  // GET /api/prds/:id/github — PRD GitHub config
+  app.get('/api/prds/:id/github', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const config = getPrdGitHubConfig(parseInt(id, 10));
+    if (!config) return reply.send({ configured: false });
+    return reply.send({ configured: true, ...config });
+  });
+
+  // PUT /api/prds/:id/github — Create/Update PRD GitHub config
+  app.put('/api/prds/:id/github', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const body = request.body as { repo_owner?: string; repo_name?: string; default_branch?: string; enabled?: boolean; auto_sync?: boolean };
+    if (!body.repo_owner || !body.repo_name) {
+      return reply.status(400).send({ error: 'bad_request', message: 'repo_owner and repo_name are required' });
+    }
+    const config = upsertPrdGitHubConfig({
+      prd_id: parseInt(id, 10),
+      repo_owner: body.repo_owner,
+      repo_name: body.repo_name,
+      default_branch: body.default_branch,
+      enabled: body.enabled,
+      auto_sync: body.auto_sync,
+    });
+    wsManager.notifyGitHubConfigUpdated({ type: 'prd', ...config });
+    return reply.send(config);
+  });
+
+  // DELETE /api/prds/:id/github — Remove PRD GitHub config
+  app.delete('/api/prds/:id/github', async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const deleted = deletePrdGitHubConfig(parseInt(id, 10));
+    if (!deleted) return reply.status(404).send({ error: 'not_found', message: 'PRD GitHub config not found' });
+    return reply.send({ success: true });
   });
 }

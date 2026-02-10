@@ -5,7 +5,7 @@ import { wsManager } from '../services/websocket.js';
 export async function registerPrdRoutes(app: FastifyInstance): Promise<void> {
   // POST /api/prds
   app.post('/api/prds', async (request, reply) => {
-    const body = request.body as { title?: string; description?: string; vision?: string; user_stories?: string[]; success_criteria?: string[]; constraints?: string; out_of_scope?: string };
+    const body = request.body as { title?: string; description?: string; vision?: string; user_stories?: string[]; success_criteria?: string[]; constraints?: string; out_of_scope?: string; project_path?: string };
     if (!body.title) return reply.status(400).send({ error: 'bad_request', message: 'title is required' });
     const prd = createPrd(body as Parameters<typeof createPrd>[0]);
     wsManager.notifyPrdCreated(prd);

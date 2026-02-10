@@ -61,14 +61,14 @@ export function generateStandupReport(date?: string): StandupReport {
   const targetDate = date || new Date().toISOString().slice(0, 10);
 
   const completedTasks = db.prepare(`SELECT * FROM tasks WHERE status = 'done' AND date(completed_at) = ?`).all(targetDate) as Record<string, unknown>[];
-  const inProgressTasks = db.prepare(`SELECT * FROM tasks WHERE status = 'in_progress'`).all() as Record<string, unknown>[];
+  const activeTasks = db.prepare(`SELECT * FROM tasks WHERE status IN ('design', 'implementation')`).all() as Record<string, unknown>[];
   const sessionCount = (db.prepare(`SELECT COUNT(*) as count FROM sessions WHERE date(start_time) = ?`).get(targetDate) as { count: number }).count;
   const tokenStats = db.prepare(`SELECT COALESCE(SUM(token_input), 0) as input, COALESCE(SUM(token_output), 0) as output, COALESCE(SUM(cost_usd), 0) as cost FROM sessions WHERE date(start_time) = ?`).get(targetDate) as { input: number; output: number; cost: number };
 
   return {
     date: targetDate,
     completed_tasks: completedTasks as unknown as StandupReport['completed_tasks'],
-    in_progress_tasks: inProgressTasks as unknown as StandupReport['in_progress_tasks'],
+    active_tasks: activeTasks as unknown as StandupReport['active_tasks'],
     sessions_today: sessionCount,
     tokens_today: { input: tokenStats.input, output: tokenStats.output },
     cost_today: tokenStats.cost,

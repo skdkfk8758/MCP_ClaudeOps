@@ -34,16 +34,19 @@ function initializeSchema(database: Database.Database): void {
   // Try to read schema.sql relative to this file
   // In production (dist/), it will be at a different location
   // So we inline the critical CREATE TABLE statements as a fallback
+  let schemaLoaded = false;
   try {
     const schemaPath = join(__dirname, 'schema.sql');
     if (existsSync(schemaPath)) {
       const schema = readFileSync(schemaPath, 'utf-8');
       database.exec(schema);
-      return;
+      schemaLoaded = true;
     }
   } catch {
     // fallback to inline
   }
+
+  if (!schemaLoaded) {
 
   // Inline schema as fallback
   database.exec(`
@@ -190,6 +193,7 @@ function initializeSchema(database: Database.Database): void {
       success_criteria TEXT,
       constraints TEXT,
       out_of_scope TEXT,
+      project_path TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
@@ -306,7 +310,9 @@ function initializeSchema(database: Database.Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_contexts_project ON project_contexts(project_path);
   `);
+  } // end if (!schemaLoaded)
 
+  // Migrations: run regardless of schema source
   // Add task_id column to agent_executions if not exists
   try {
     database.exec(`ALTER TABLE agent_executions ADD COLUMN task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL`);
@@ -349,6 +355,192 @@ function initializeSchema(database: Database.Database): void {
   } catch {
     // column already exists
   }
+
+  // Phase 1: Migrate in_progress → implementation (one-time)
+  const migrationDone = database.prepare("SELECT value FROM config WHERE key = 'migration.status_v2'").get() as { value: string } | undefined;
+  if (!migrationDone) {
+    database.exec(`UPDATE tasks SET status = 'implementation' WHERE status = 'in_progress'`);
+    database.exec(`UPDATE task_history SET old_value = 'implementation' WHERE field_name = 'status' AND old_value = 'in_progress'`);
+    database.exec(`UPDATE task_history SET new_value = 'implementation' WHERE field_name = 'status' AND new_value = 'in_progress'`);
+    database.exec(`INSERT OR REPLACE INTO config (key, value) VALUES ('migration.status_v2', '1')`);
+  }
+
+  // Phase 3: PRD-level GitHub config table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS prd_github_config (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      prd_id INTEGER NOT NULL UNIQUE REFERENCES prds(id) ON DELETE CASCADE,
+      repo_owner TEXT NOT NULL,
+      repo_name TEXT NOT NULL,
+      default_branch TEXT NOT NULL DEFAULT 'main',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      auto_sync INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Phase 3: branch_name columns on epics and tasks
+  try {
+    database.exec(`ALTER TABLE epics ADD COLUMN branch_name TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN branch_name TEXT`);
+  } catch {
+    // column already exists
+  }
+
+  // Phase 5: Pipeline tables
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS pipelines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      epic_id INTEGER REFERENCES epics(id) ON DELETE SET NULL,
+      steps TEXT NOT NULL,
+      graph_data TEXT,
+      status TEXT NOT NULL DEFAULT 'draft',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS pipeline_executions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      pipeline_id INTEGER NOT NULL REFERENCES pipelines(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'running',
+      current_step INTEGER NOT NULL DEFAULT 0,
+      total_steps INTEGER NOT NULL,
+      results TEXT,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pipelines_epic ON pipelines(epic_id);
+    CREATE INDEX IF NOT EXISTS idx_pipelines_status ON pipelines(status);
+    CREATE INDEX IF NOT EXISTS idx_pipeline_executions_pipeline ON pipeline_executions(pipeline_id);
+    CREATE INDEX IF NOT EXISTS idx_pipeline_executions_status ON pipeline_executions(status);
+  `);
+
+  // Phase 4: Task execution columns
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN execution_status TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN last_execution_at TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN execution_session_id TEXT`);
+  } catch {
+    // column already exists
+  }
+
+  // Phase 6: Task workflow columns
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN work_prompt TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN design_result TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN design_status TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN pipeline_id INTEGER REFERENCES pipelines(id) ON DELETE SET NULL`);
+  } catch {
+    // column already exists
+  }
+
+  // Verification columns on tasks
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN verification_result TEXT`);
+  } catch {
+    // column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE tasks ADD COLUMN verification_status TEXT`);
+  } catch {
+    // column already exists
+  }
+
+  // Commit tracking table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS task_commits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      commit_hash TEXT NOT NULL,
+      commit_message TEXT NOT NULL,
+      author TEXT,
+      committed_at TEXT,
+      files_changed INTEGER DEFAULT 0,
+      insertions INTEGER DEFAULT 0,
+      deletions INTEGER DEFAULT 0,
+      branch_name TEXT,
+      tracked_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(task_id, commit_hash)
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_commits_task ON task_commits(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_commits_hash ON task_commits(commit_hash);
+  `);
+
+  // Pipeline reverse reference to task
+  try {
+    database.exec(`ALTER TABLE pipelines ADD COLUMN task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL`);
+  } catch {
+    // column already exists
+  }
+
+  // Task execution logs table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS task_execution_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      execution_id INTEGER REFERENCES pipeline_executions(id),
+      phase TEXT NOT NULL,
+      step_number INTEGER,
+      agent_type TEXT,
+      model TEXT,
+      input_prompt TEXT,
+      output_summary TEXT,
+      status TEXT NOT NULL DEFAULT 'running',
+      duration_ms INTEGER,
+      started_at TEXT NOT NULL DEFAULT (datetime('now')),
+      completed_at TEXT,
+      error TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_task_exec_logs_task ON task_execution_logs(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_exec_logs_phase ON task_execution_logs(phase);
+  `);
+
+  // Phase 7: project_path column on prds
+  try {
+    database.exec(`ALTER TABLE prds ADD COLUMN project_path TEXT`);
+  } catch {
+    // column already exists
+  }
+
+  // Phase 8: Epic sessions table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS epic_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      epic_id INTEGER NOT NULL REFERENCES epics(id) ON DELETE CASCADE,
+      session_id TEXT NOT NULL,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      linked_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(epic_id, session_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_epic_sessions_epic ON epic_sessions(epic_id);
+    CREATE INDEX IF NOT EXISTS idx_epic_sessions_session ON epic_sessions(session_id);
+  `);
 }
 
 export function closeDb(): void {

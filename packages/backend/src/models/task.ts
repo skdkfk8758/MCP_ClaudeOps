@@ -64,16 +64,17 @@ export function updateTask(id: number, data: TaskUpdate): Task | undefined {
   const fields: string[] = [];
   const values: unknown[] = [];
 
-  const trackableFields: (keyof TaskUpdate)[] = ['title', 'description', 'status', 'priority', 'assignee', 'due_date', 'estimated_effort', 'epic_id'];
+  const trackableFields: string[] = ['title', 'description', 'status', 'priority', 'assignee', 'due_date', 'estimated_effort', 'epic_id', 'branch_name', 'work_prompt'];
 
   for (const field of trackableFields) {
-    if (data[field] !== undefined) {
+    const dataRec = data as Record<string, unknown>;
+    if (dataRec[field] !== undefined) {
       fields.push(`${field} = ?`);
-      values.push(data[field]);
+      values.push(dataRec[field]);
       // Record history
-      if (String(existing[field]) !== String(data[field])) {
+      if (String(existing[field]) !== String(dataRec[field])) {
         db.prepare('INSERT INTO task_history (task_id, field_name, old_value, new_value) VALUES (?, ?, ?, ?)').run(
-          id, field, existing[field] != null ? String(existing[field]) : null, data[field] != null ? String(data[field]) : null
+          id, field, existing[field] != null ? String(existing[field]) : null, dataRec[field] != null ? String(dataRec[field]) : null
         );
       }
     }
@@ -115,6 +116,7 @@ export function deleteTask(id: number): boolean {
 
 export function listTasks(options: {
   status?: string; priority?: string; assignee?: string; label?: string;
+  epic_id?: number;
   page?: number; page_size?: number;
 }): { total: number; page: number; page_size: number; pages: number; items: Task[] } {
   const db = getDb();
@@ -128,6 +130,7 @@ export function listTasks(options: {
   if (options.status) { conditions.push('t.status = ?'); params.push(options.status); }
   if (options.priority) { conditions.push('t.priority = ?'); params.push(options.priority); }
   if (options.assignee) { conditions.push('t.assignee = ?'); params.push(options.assignee); }
+  if (options.epic_id != null) { conditions.push('t.epic_id = ?'); params.push(options.epic_id); }
   if (options.label) {
     conditions.push('EXISTS (SELECT 1 FROM task_labels tl WHERE tl.task_id = t.id AND tl.label = ?)');
     params.push(options.label);
@@ -142,13 +145,52 @@ export function listTasks(options: {
   return { total, page, page_size: pageSize, pages: Math.ceil(total / pageSize), items };
 }
 
-export function getTaskBoard(): TaskBoard {
+export interface BoardFilters {
+  epic_id?: number;
+  priority?: string;
+  assignee_id?: number;
+  label?: string;
+  team_id?: number;
+  effort?: string;
+}
+
+export function getTaskBoard(filters?: BoardFilters): TaskBoard {
   const db = getDb();
-  const statuses: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'review', 'done'];
-  const board: TaskBoard = { backlog: [], todo: [], in_progress: [], review: [], done: [] };
+  const statuses: TaskStatus[] = ['backlog', 'todo', 'design', 'implementation', 'verification', 'review', 'done'];
+  const board: TaskBoard = { backlog: [], todo: [], design: [], implementation: [], verification: [], review: [], done: [] };
+
+  const filterConditions: string[] = [];
+  const filterParams: unknown[] = [];
+
+  if (filters?.epic_id) {
+    filterConditions.push('t.epic_id = ?');
+    filterParams.push(filters.epic_id);
+  }
+  if (filters?.priority) {
+    filterConditions.push('t.priority = ?');
+    filterParams.push(filters.priority);
+  }
+  if (filters?.assignee_id) {
+    filterConditions.push('EXISTS (SELECT 1 FROM task_assignees ta WHERE ta.task_id = t.id AND ta.member_id = ?)');
+    filterParams.push(filters.assignee_id);
+  }
+  if (filters?.label) {
+    filterConditions.push('EXISTS (SELECT 1 FROM task_labels tl WHERE tl.task_id = t.id AND tl.label = ?)');
+    filterParams.push(filters.label);
+  }
+  if (filters?.team_id) {
+    filterConditions.push('EXISTS (SELECT 1 FROM task_assignees ta JOIN team_members tm ON ta.member_id = tm.id WHERE ta.task_id = t.id AND tm.team_id = ?)');
+    filterParams.push(filters.team_id);
+  }
+  if (filters?.effort) {
+    filterConditions.push('t.estimated_effort = ?');
+    filterParams.push(filters.effort);
+  }
+
+  const extraWhere = filterConditions.length > 0 ? ` AND ${filterConditions.join(' AND ')}` : '';
 
   for (const status of statuses) {
-    const rows = db.prepare('SELECT * FROM tasks WHERE status = ? ORDER BY position ASC').all(status);
+    const rows = db.prepare(`SELECT t.* FROM tasks t WHERE t.status = ?${extraWhere} ORDER BY t.position ASC`).all(status, ...filterParams);
     board[status] = (rows as Record<string, unknown>[]).map(enrichTask);
   }
 
@@ -162,6 +204,23 @@ export function moveTask(id: number, move: TaskMove): Task | undefined {
 
   const oldStatus = existing.status as string;
   const oldPosition = existing.position as number;
+
+  // implementation → review 직접 이동 차단 (verification 필수)
+  if (oldStatus === 'implementation' && move.status === 'review') {
+    throw new Error('implementation에서 review로 직접 이동할 수 없습니다. verification 단계를 거쳐야 합니다.');
+  }
+
+  // todo 이동 시 branch_name 자동 생성
+  if (move.status === 'todo' && !existing.branch_name) {
+    const slug = (existing.title as string)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .slice(0, 40)
+      .replace(/-+$/, '');
+    const branchName = `task/${id}-${slug || 'work'}`;
+    db.prepare('UPDATE tasks SET branch_name = ? WHERE id = ?').run(branchName, id);
+  }
 
   if (oldStatus !== move.status) {
     db.prepare('INSERT INTO task_history (task_id, field_name, old_value, new_value) VALUES (?, ?, ?, ?)').run(
@@ -187,7 +246,10 @@ export function moveTask(id: number, move: TaskMove): Task | undefined {
   values.push(id);
   db.prepare(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`).run(...values);
 
-  return getTask(id);
+  // Recalculate epic progress after move (same as updateTask)
+  const movedTask = getTask(id);
+  if (movedTask?.epic_id) recalcEpicProgress(movedTask.epic_id);
+  return movedTask;
 }
 
 export function getTaskHistory(taskId: number): TaskHistoryEntry[] {
@@ -211,7 +273,7 @@ export function getTaskStats(): TaskStats {
   const total = (db.prepare('SELECT COUNT(*) as count FROM tasks').get() as { count: number }).count;
 
   const statusRows = db.prepare('SELECT status, COUNT(*) as count FROM tasks GROUP BY status').all() as { status: string; count: number }[];
-  const by_status = { backlog: 0, todo: 0, in_progress: 0, review: 0, done: 0 } as Record<string, number>;
+  const by_status = { backlog: 0, todo: 0, design: 0, implementation: 0, verification: 0, review: 0, done: 0 } as Record<string, number>;
   for (const row of statusRows) by_status[row.status] = row.count;
 
   const priorityRows = db.prepare('SELECT priority, COUNT(*) as count FROM tasks GROUP BY priority').all() as { priority: string; count: number }[];

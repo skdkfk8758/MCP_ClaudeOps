@@ -4,14 +4,15 @@ import type { Prd, PrdCreate, PrdUpdate } from '@claudeops/shared';
 export function createPrd(data: PrdCreate): Prd {
   const db = getDb();
   const stmt = db.prepare(`
-    INSERT INTO prds (title, description, vision, user_stories, success_criteria, constraints, out_of_scope)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO prds (title, description, vision, user_stories, success_criteria, constraints, out_of_scope, project_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `);
   const result = stmt.run(
     data.title, data.description ?? null, data.vision ?? null,
     data.user_stories ? JSON.stringify(data.user_stories) : null,
     data.success_criteria ? JSON.stringify(data.success_criteria) : null,
-    data.constraints ?? null, data.out_of_scope ?? null
+    data.constraints ?? null, data.out_of_scope ?? null,
+    data.project_path ?? null
   );
   return getPrd(result.lastInsertRowid as number)!;
 }
@@ -31,7 +32,7 @@ export function updatePrd(id: number, data: PrdUpdate): Prd | undefined {
   const fields: string[] = [];
   const values: unknown[] = [];
 
-  const updatableFields = ['title', 'description', 'status', 'vision', 'constraints', 'out_of_scope'] as const;
+  const updatableFields = ['title', 'description', 'status', 'vision', 'constraints', 'out_of_scope', 'project_path'] as const;
   for (const field of updatableFields) {
     if (data[field] !== undefined) {
       fields.push(`${field} = ?`);

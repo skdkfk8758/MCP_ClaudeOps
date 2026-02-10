@@ -132,6 +132,106 @@ export class WebSocketManager {
   notifyTaskAssigned(data: unknown): void {
     this.broadcast('task', 'assigned', data);
   }
+
+  notifyPipelineCreated(pipeline: unknown): void {
+    this.broadcast('pipeline', 'created', pipeline);
+  }
+
+  notifyPipelineUpdated(pipeline: unknown): void {
+    this.broadcast('pipeline', 'updated', pipeline);
+  }
+
+  notifyPipelineDeleted(id: unknown): void {
+    this.broadcast('pipeline', 'deleted', { id });
+  }
+
+  notifyPipelineExecutionStarted(execution: unknown): void {
+    this.broadcast('pipeline', 'execution_started', execution);
+  }
+
+  notifyPipelineExecutionProgress(execution: unknown): void {
+    this.broadcast('pipeline', 'execution_progress', execution);
+  }
+
+  notifyPipelineExecutionCompleted(execution: unknown): void {
+    this.broadcast('pipeline', 'execution_completed', execution);
+  }
+
+  notifyPipelineExecutionFailed(execution: unknown): void {
+    this.broadcast('pipeline', 'execution_failed', execution);
+  }
+
+  notifyTaskExecutionStarted(data: unknown): void {
+    this.broadcast('task', 'execution_started', data);
+  }
+
+  notifyTaskExecutionCompleted(data: unknown): void {
+    this.broadcast('task', 'execution_completed', data);
+  }
+
+  notifyTaskExecutionFailed(data: unknown): void {
+    this.broadcast('task', 'execution_failed', data);
+  }
+
+  notifyDesignStarted(data: unknown): void {
+    this.broadcast('task', 'design_started', data);
+  }
+
+  notifyDesignProgress(data: unknown): void {
+    this.broadcast('task', 'design_progress', data);
+  }
+
+  notifyDesignCompleted(data: unknown): void {
+    this.broadcast('task', 'design_completed', data);
+  }
+
+  notifyDesignFailed(data: unknown): void {
+    this.broadcast('task', 'design_failed', data);
+  }
+
+  notifyImplementationProgress(data: unknown): void {
+    this.broadcast('task', 'implementation_progress', data);
+  }
+
+  notifyImplementationStepCompleted(data: unknown): void {
+    this.broadcast('task', 'implementation_step_completed', data);
+  }
+
+  notifyVerificationStarted(data: unknown): void {
+    this.broadcast('task', 'verification_started', data);
+  }
+
+  notifyVerificationProgress(data: unknown): void {
+    this.broadcast('task', 'verification_progress', data);
+  }
+
+  notifyVerificationCompleted(data: unknown): void {
+    this.broadcast('task', 'verification_completed', data);
+  }
+
+  notifyVerificationFailed(data: unknown): void {
+    this.broadcast('task', 'verification_failed', data);
+  }
+
+  notifyTaskStreamChunk(data: unknown): void {
+    this.broadcast('task', 'stream_chunk', data);
+  }
+
+  notifyTaskExecutionCancelled(data: unknown): void {
+    this.broadcast('task', 'execution_cancelled', data);
+  }
+
+  notifyCommitsScanned(data: unknown): void {
+    this.broadcast('task', 'commits_scanned', data);
+  }
+
+  notifyScopeSplitProposed(data: unknown): void {
+    this.broadcast('task', 'scope_split_proposed', data);
+  }
+
+  notifyScopeSplitCompleted(data: unknown): void {
+    this.broadcast('task', 'scope_split_completed', data);
+  }
 }
 
 export const wsManager = new WebSocketManager();
