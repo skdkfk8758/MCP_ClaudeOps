@@ -4,6 +4,7 @@ import { join, dirname } from 'node:path';
 import { mkdirSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { seedPresetPersonas } from '../data/team-templates.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -263,40 +264,63 @@ function initializeSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_worktrees_epic ON worktrees(epic_id);
     CREATE INDEX IF NOT EXISTS idx_worktrees_status ON worktrees(status);
 
+    CREATE TABLE IF NOT EXISTS agent_personas (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      agent_type TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      model TEXT NOT NULL DEFAULT 'sonnet',
+      category TEXT NOT NULL DEFAULT 'custom',
+      description TEXT,
+      system_prompt TEXT,
+      capabilities TEXT,
+      tool_access TEXT,
+      source TEXT NOT NULL DEFAULT 'custom',
+      color TEXT DEFAULT '#6b7280',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS teams (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       description TEXT,
       avatar_color TEXT DEFAULT '#6366f1',
+      status TEXT NOT NULL DEFAULT 'active',
+      default_pipeline_id INTEGER,
+      template_id TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
-    CREATE TABLE IF NOT EXISTS team_members (
+    CREATE TABLE IF NOT EXISTS team_agents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-      name TEXT NOT NULL,
-      role TEXT NOT NULL DEFAULT 'member',
-      email TEXT,
-      avatar_url TEXT,
-      status TEXT NOT NULL DEFAULT 'active',
-      specialties TEXT,
+      persona_id INTEGER NOT NULL REFERENCES agent_personas(id) ON DELETE CASCADE,
+      instance_label TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'worker',
+      context_prompt TEXT,
+      max_concurrent INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(team_id, name)
+      UNIQUE(team_id, persona_id, instance_label)
     );
 
-    CREATE TABLE IF NOT EXISTS task_assignees (
+    CREATE TABLE IF NOT EXISTS task_team_assignments (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
-      member_id INTEGER NOT NULL REFERENCES team_members(id) ON DELETE CASCADE,
+      team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+      auto_execute INTEGER NOT NULL DEFAULT 0,
       assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
-      UNIQUE(task_id, member_id)
+      UNIQUE(task_id, team_id)
     );
 
-    CREATE INDEX IF NOT EXISTS idx_team_members_team ON team_members(team_id);
-    CREATE INDEX IF NOT EXISTS idx_task_assignees_task ON task_assignees(task_id);
-    CREATE INDEX IF NOT EXISTS idx_task_assignees_member ON task_assignees(member_id);
+    CREATE INDEX IF NOT EXISTS idx_personas_type ON agent_personas(agent_type);
+    CREATE INDEX IF NOT EXISTS idx_personas_source ON agent_personas(source);
+    CREATE INDEX IF NOT EXISTS idx_personas_category ON agent_personas(category);
+    CREATE INDEX IF NOT EXISTS idx_team_agents_team ON team_agents(team_id);
+    CREATE INDEX IF NOT EXISTS idx_team_agents_persona ON team_agents(persona_id);
+    CREATE INDEX IF NOT EXISTS idx_task_team_assign_task ON task_team_assignments(task_id);
+    CREATE INDEX IF NOT EXISTS idx_task_team_assign_team ON task_team_assignments(team_id);
 
     CREATE TABLE IF NOT EXISTS project_contexts (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -541,6 +565,81 @@ function initializeSchema(database: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_epic_sessions_epic ON epic_sessions(epic_id);
     CREATE INDEX IF NOT EXISTS idx_epic_sessions_session ON epic_sessions(session_id);
   `);
+
+  // Phase 9: 팀 관리 에이전트 페르소나 마이그레이션
+  const teamMigrationDone = database.prepare("SELECT value FROM config WHERE key = 'migration.team_persona_v1'").get() as { value: string } | undefined;
+  if (!teamMigrationDone) {
+    // 기존 테이블 제거 (Clean Break)
+    database.exec(`DROP TABLE IF EXISTS task_assignees`);
+    database.exec(`DROP TABLE IF EXISTS team_members`);
+    // teams 테이블에 새 컬럼 추가 (ALTER TABLE은 안전)
+    try {
+      database.exec(`ALTER TABLE teams ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`);
+    } catch {
+      // 이미 존재
+    }
+    try {
+      database.exec(`ALTER TABLE teams ADD COLUMN default_pipeline_id INTEGER REFERENCES pipelines(id) ON DELETE SET NULL`);
+    } catch {
+      // 이미 존재
+    }
+    try {
+      database.exec(`ALTER TABLE teams ADD COLUMN template_id TEXT`);
+    } catch {
+      // 이미 존재
+    }
+
+    // 새 테이블 생성
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS agent_personas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        agent_type TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        model TEXT NOT NULL DEFAULT 'sonnet',
+        category TEXT NOT NULL DEFAULT 'custom',
+        description TEXT,
+        system_prompt TEXT,
+        capabilities TEXT,
+        tool_access TEXT,
+        source TEXT NOT NULL DEFAULT 'custom',
+        color TEXT DEFAULT '#6b7280',
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      CREATE TABLE IF NOT EXISTS team_agents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        persona_id INTEGER NOT NULL REFERENCES agent_personas(id) ON DELETE CASCADE,
+        instance_label TEXT NOT NULL DEFAULT '',
+        role TEXT NOT NULL DEFAULT 'worker',
+        context_prompt TEXT,
+        max_concurrent INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now')),
+        updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(team_id, persona_id, instance_label)
+      );
+      CREATE TABLE IF NOT EXISTS task_team_assignments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+        auto_execute INTEGER NOT NULL DEFAULT 0,
+        assigned_at TEXT NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(task_id, team_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_personas_type ON agent_personas(agent_type);
+      CREATE INDEX IF NOT EXISTS idx_personas_source ON agent_personas(source);
+      CREATE INDEX IF NOT EXISTS idx_personas_category ON agent_personas(category);
+      CREATE INDEX IF NOT EXISTS idx_team_agents_team ON team_agents(team_id);
+      CREATE INDEX IF NOT EXISTS idx_team_agents_persona ON team_agents(persona_id);
+      CREATE INDEX IF NOT EXISTS idx_task_team_assign_task ON task_team_assignments(task_id);
+      CREATE INDEX IF NOT EXISTS idx_task_team_assign_team ON task_team_assignments(team_id);
+    `);
+
+    database.exec(`INSERT OR REPLACE INTO config (key, value) VALUES ('migration.team_persona_v1', '1')`);
+  }
+
+  // 프리셋 페르소나 시드 (team-templates.ts에서 임포트) - 항상 실행 (INSERT OR IGNORE)
+  seedPresetPersonas(database);
 }
 
 export function closeDb(): void {

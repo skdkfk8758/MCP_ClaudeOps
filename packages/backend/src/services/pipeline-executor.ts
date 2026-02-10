@@ -1,9 +1,21 @@
 import { getPipeline, createExecution, updateExecution } from '../models/pipeline.js';
+import { listTeamAgents } from '../models/team.js';
 import { wsManager } from './websocket.js';
 import { spawn } from 'node:child_process';
 import type { PipelineExecution, PipelineStepResult, AgentTier, StepStatus } from '@claudeops/shared';
 
 const activeExecutions = new Map<number, AbortController>();
+
+// ─── 모델별 타임아웃 (가드레일) ───
+const MODEL_TIMEOUTS: Record<AgentTier, number> = {
+  haiku: 2 * 60 * 1000,   // 2분
+  sonnet: 5 * 60 * 1000,  // 5분
+  opus: 15 * 60 * 1000,   // 15분
+};
+
+// ─── 전역 동시 실행 제한 ───
+let globalConcurrent = 0;
+const MAX_GLOBAL_CONCURRENT = 5;
 
 function getSimulationDelay(model: AgentTier): number {
   switch (model) {
@@ -13,9 +25,33 @@ function getSimulationDelay(model: AgentTier): number {
   }
 }
 
+/**
+ * system_prompt가 있으면 XML 구분자로 감싸서 프롬프트 앞에 주입
+ */
+function buildFullPrompt(prompt: string, systemPrompt?: string, contextPrompt?: string): string {
+  let fullPrompt = '';
+  if (systemPrompt) {
+    fullPrompt += `<system_prompt>${systemPrompt}</system_prompt>\n\n`;
+  }
+  if (contextPrompt) {
+    fullPrompt += `<context>${contextPrompt}</context>\n\n`;
+  }
+  fullPrompt += prompt;
+  return fullPrompt;
+}
+
 function runAgent(agentType: string, model: string, prompt: string, projectPath: string, signal: AbortSignal, taskId?: number): Promise<{ stdout: string; stderr: string }> {
+  const timeout = MODEL_TIMEOUTS[model as AgentTier] ?? MODEL_TIMEOUTS.sonnet;
+
   return new Promise((resolve, reject) => {
     if (signal.aborted) { reject(new Error('Execution cancelled')); return; }
+
+    // 전역 동시 실행 제한 확인
+    if (globalConcurrent >= MAX_GLOBAL_CONCURRENT) {
+      reject(new Error(`전역 동시 실행 제한 초과 (최대 ${MAX_GLOBAL_CONCURRENT})`));
+      return;
+    }
+    globalConcurrent++;
 
     const proc = spawn('claude', ['-p', prompt, '--model', model], {
       cwd: projectPath,
@@ -24,6 +60,12 @@ function runAgent(agentType: string, model: string, prompt: string, projectPath:
 
     let stdout = '';
     let stderr = '';
+
+    // 모델별 타임아웃 설정
+    const timeoutId = setTimeout(() => {
+      proc.kill('SIGTERM');
+      reject(new Error(`Agent ${agentType} (${model}) 타임아웃 (${timeout / 1000}초)`));
+    }, timeout);
 
     proc.stdout.on('data', (data: Buffer) => {
       const text = data.toString();
@@ -40,10 +82,12 @@ function runAgent(agentType: string, model: string, prompt: string, projectPath:
     });
     proc.stderr.on('data', (data: Buffer) => { stderr += data.toString(); });
 
-    const onAbort = () => { proc.kill('SIGTERM'); reject(new Error('Execution cancelled')); };
+    const onAbort = () => { clearTimeout(timeoutId); proc.kill('SIGTERM'); reject(new Error('Execution cancelled')); };
     signal.addEventListener('abort', onAbort, { once: true });
 
     proc.on('close', (code) => {
+      clearTimeout(timeoutId);
+      globalConcurrent--;
       signal.removeEventListener('abort', onAbort);
       if (code === 0) {
         resolve({ stdout, stderr });
@@ -53,6 +97,8 @@ function runAgent(agentType: string, model: string, prompt: string, projectPath:
     });
 
     proc.on('error', (err) => {
+      clearTimeout(timeoutId);
+      globalConcurrent--;
       signal.removeEventListener('abort', onAbort);
       reject(err);
     });
@@ -68,10 +114,25 @@ function delay(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-export async function executePipeline(pipelineId: number, projectPath: string, simulate = false, taskId?: number): Promise<PipelineExecution> {
+export async function executePipeline(pipelineId: number, projectPath: string, simulate = false, taskId?: number, teamId?: number): Promise<PipelineExecution> {
   const pipeline = getPipeline(pipelineId);
   if (!pipeline) throw new Error('Pipeline not found');
   if (pipeline.steps.length === 0) throw new Error('Pipeline has no steps');
+
+  // 팀 컨텍스트: teamId가 있으면 팀 에이전트의 system_prompt/context_prompt 조회
+  const teamAgentMap = new Map<string, { system_prompt?: string; context_prompt?: string }>();
+  if (teamId) {
+    const teamAgents = listTeamAgents(teamId);
+    for (const ta of teamAgents) {
+      const key = ta.persona?.agent_type ?? '';
+      if (key) {
+        teamAgentMap.set(key, {
+          system_prompt: ta.persona?.system_prompt ?? undefined,
+          context_prompt: ta.context_prompt ?? undefined,
+        });
+      }
+    }
+  }
 
   const execution = createExecution(pipelineId, pipeline.steps.length);
   const controller = new AbortController();
@@ -110,7 +171,14 @@ export async function executePipeline(pipelineId: number, projectPath: string, s
             if (simulate) {
               await delay(getSimulationDelay(agent.model as AgentTier), controller.signal);
             } else {
-              await runAgent(agent.type, agent.model, agent.prompt, projectPath, controller.signal, taskId);
+              // 팀 컨텍스트에서 system_prompt/context_prompt 주입
+              const teamContext = teamAgentMap.get(agent.type);
+              const fullPrompt = buildFullPrompt(
+                agent.prompt,
+                teamContext?.system_prompt,
+                teamContext?.context_prompt
+              );
+              await runAgent(agent.type, agent.model, fullPrompt, projectPath, controller.signal, taskId);
             }
             results[i].agents[agentIndex].status = 'completed';
             results[i].agents[agentIndex].completed_at = new Date().toISOString();

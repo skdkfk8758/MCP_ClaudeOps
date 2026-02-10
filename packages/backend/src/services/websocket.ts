@@ -117,20 +117,50 @@ export class WebSocketManager {
     this.broadcast('team', 'deleted', { id });
   }
 
-  notifyMemberAdded(member: unknown): void {
-    this.broadcast('member', 'added', member);
+  // ─── Persona 알림 ───
+
+  notifyPersonaCreated(persona: unknown): void {
+    this.broadcast('persona', 'created', persona);
   }
 
-  notifyMemberUpdated(member: unknown): void {
-    this.broadcast('member', 'updated', member);
+  notifyPersonaUpdated(persona: unknown): void {
+    this.broadcast('persona', 'updated', persona);
   }
 
-  notifyMemberRemoved(id: unknown): void {
-    this.broadcast('member', 'removed', { id });
+  notifyPersonaDeleted(id: unknown): void {
+    this.broadcast('persona', 'deleted', { id });
   }
 
-  notifyTaskAssigned(data: unknown): void {
-    this.broadcast('task', 'assigned', data);
+  // ─── TeamAgent 알림 ───
+
+  notifyTeamAgentAdded(teamAgent: unknown): void {
+    this.broadcast('team', 'agent_added', teamAgent);
+  }
+
+  notifyTeamAgentUpdated(teamAgent: unknown): void {
+    this.broadcast('team', 'agent_updated', teamAgent);
+  }
+
+  notifyTeamAgentRemoved(data: unknown): void {
+    this.broadcast('team', 'agent_removed', data);
+  }
+
+  notifyTeamArchived(team: unknown): void {
+    this.broadcast('team', 'archived', team);
+  }
+
+  notifyTeamActivated(team: unknown): void {
+    this.broadcast('team', 'activated', team);
+  }
+
+  // ─── Task-Team 배정 알림 ───
+
+  notifyTaskTeamAssigned(data: unknown): void {
+    this.broadcast('task', 'team_assigned', data);
+  }
+
+  notifyTaskTeamUnassigned(data: unknown): void {
+    this.broadcast('task', 'team_unassigned', data);
   }
 
   notifyPipelineCreated(pipeline: unknown): void {

@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ProjectInitConfig, ProjectInitResult } from '@claudeops/shared';
 import { getDb } from '../database/index.js';
-import { createTeam, addMember } from '../models/team.js';
+import { createTeam, addAgentToTeam, getPersonaByType } from '../models/team.js';
 import { createPrd, updatePrd } from '../models/prd.js';
 import { createEpic, updateEpic } from '../models/epic.js';
 import { createTask } from '../models/task.js';
@@ -34,13 +34,15 @@ export async function registerProjectInitRoutes(app: FastifyInstance): Promise<v
 
         if (config.team.members) {
           for (const m of config.team.members) {
-            addMember({
-              team_id: team.id,
-              name: m.name,
-              role: m.role,
-              email: m.email,
-              specialties: m.specialties,
-            });
+            // agent_type으로 페르소나 조회하여 팀에 추가
+            const persona = getPersonaByType(m.role ?? 'executor');
+            if (persona) {
+              addAgentToTeam({
+                team_id: team.id,
+                persona_id: persona.id,
+                role: (m.role as 'lead' | 'worker' | 'reviewer' | 'observer') ?? 'worker',
+              });
+            }
             result.team.member_count++;
           }
         }
