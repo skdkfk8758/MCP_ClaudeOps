@@ -17,13 +17,19 @@ import { registerGitHubRoutes } from './routes/github.js';
 import { registerWorktreeRoutes } from './routes/worktrees.js';
 import { registerContextRoutes } from './routes/contexts.js';
 import { registerTeamRoutes } from './routes/teams.js';
+import { registerProjectInitRoutes } from './routes/project-init.js';
+import { registerServerRoutes } from './routes/server.js';
+import { registerPipelineRoutes } from './routes/pipelines.js';
 import { startAggregator } from './services/aggregator.js';
 import { startCleanup } from './services/cleanup.js';
 
 export async function createServer() {
   const app = Fastify({ logger: false });
 
-  await app.register(cors, { origin: true });
+  await app.register(cors, {
+    origin: true,
+    methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  });
   await app.register(websocket);
 
   // Register all routes
@@ -43,6 +49,9 @@ export async function createServer() {
   await registerWorktreeRoutes(app);
   await registerContextRoutes(app);
   await registerTeamRoutes(app);
+  await registerProjectInitRoutes(app);
+  await registerServerRoutes(app);
+  await registerPipelineRoutes(app);
 
   // Start background services
   startAggregator();
