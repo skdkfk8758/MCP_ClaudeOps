@@ -66,6 +66,17 @@ program
   });
 
 program
+  .command('restart')
+  .description('Restart services (auto-updates from GitHub if available)')
+  .option('--force', 'Continue even if build fails')
+  .option('--skip-update', 'Skip GitHub update check')
+  .option('--skip-setup', 'Skip MCP/hook re-registration')
+  .action(async (options: { force?: boolean; skipUpdate?: boolean; skipSetup?: boolean }) => {
+    const { restart } = await import('./commands/restart.js');
+    await restart(options);
+  });
+
+program
   .command('list')
   .description('List registered projects')
   .action(async () => {
