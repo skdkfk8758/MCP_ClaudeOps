@@ -20,6 +20,21 @@ const {
   mockLinkCommit,
   mockGenerateBranchName,
   mockGetTaskCommits,
+  mockRunDesign,
+  mockRunImplementation,
+  mockDesignStepsToPipelineSteps,
+  mockPipelineStepsToGraphData,
+  mockCancelTaskExecution,
+  mockExecuteTask,
+  mockCreatePipeline,
+  mockListExecutionLogs,
+  mockListExecutionGroups,
+  mockGetEpic,
+  mockGetPrd,
+  mockCreateEpic,
+  mockListExecutions,
+  mockCancelExecution,
+  mockGetDb,
   mockWsManager,
 } = vi.hoisted(() => ({
   mockCreateTask: vi.fn(),
@@ -38,6 +53,21 @@ const {
   mockLinkCommit: vi.fn(),
   mockGenerateBranchName: vi.fn(),
   mockGetTaskCommits: vi.fn(),
+  mockRunDesign: vi.fn(),
+  mockRunImplementation: vi.fn(),
+  mockDesignStepsToPipelineSteps: vi.fn(),
+  mockPipelineStepsToGraphData: vi.fn(),
+  mockCancelTaskExecution: vi.fn(),
+  mockExecuteTask: vi.fn(),
+  mockCreatePipeline: vi.fn(),
+  mockListExecutionLogs: vi.fn(),
+  mockListExecutionGroups: vi.fn(),
+  mockGetEpic: vi.fn(),
+  mockGetPrd: vi.fn(),
+  mockCreateEpic: vi.fn(),
+  mockListExecutions: vi.fn(),
+  mockCancelExecution: vi.fn(),
+  mockGetDb: vi.fn(),
   mockWsManager: {
     notifyTaskCreated: vi.fn(),
     notifyTaskUpdated: vi.fn(),
@@ -48,6 +78,9 @@ const {
     notifyVerificationFailed: vi.fn(),
     notifyCommitsScanned: vi.fn(),
     notifyPipelineCreated: vi.fn(),
+    notifyEpicCreated: vi.fn(),
+    notifyTaskStreamChunk: vi.fn(),
+    broadcast: vi.fn(),
   },
 }));
 
@@ -85,21 +118,39 @@ vi.mock('../models/commit-tracker.js', () => ({
 }));
 
 vi.mock('../services/task-executor.js', () => ({
-  runDesign: vi.fn(),
-  runImplementation: vi.fn(),
-  designStepsToPipelineSteps: vi.fn(),
+  runDesign: (...args: unknown[]) => mockRunDesign(...args),
+  runImplementation: (...args: unknown[]) => mockRunImplementation(...args),
+  designStepsToPipelineSteps: (...args: unknown[]) => mockDesignStepsToPipelineSteps(...args),
+  pipelineStepsToGraphData: (...args: unknown[]) => mockPipelineStepsToGraphData(...args),
+  cancelTaskExecution: (...args: unknown[]) => mockCancelTaskExecution(...args),
+  executeTask: (...args: unknown[]) => mockExecuteTask(...args),
 }));
 
 vi.mock('../models/pipeline.js', () => ({
-  createPipeline: vi.fn(),
+  createPipeline: (...args: unknown[]) => mockCreatePipeline(...args),
+  listExecutions: (...args: unknown[]) => mockListExecutions(...args),
 }));
 
 vi.mock('../models/task-execution-log.js', () => ({
-  listExecutionLogs: vi.fn(),
+  listExecutionLogs: (...args: unknown[]) => mockListExecutionLogs(...args),
+  listExecutionGroups: (...args: unknown[]) => mockListExecutionGroups(...args),
+}));
+
+vi.mock('../models/epic.js', () => ({
+  getEpic: (...args: unknown[]) => mockGetEpic(...args),
+  createEpic: (...args: unknown[]) => mockCreateEpic(...args),
+}));
+
+vi.mock('../models/prd.js', () => ({
+  getPrd: (...args: unknown[]) => mockGetPrd(...args),
+}));
+
+vi.mock('../services/pipeline-executor.js', () => ({
+  cancelExecution: (...args: unknown[]) => mockCancelExecution(...args),
 }));
 
 vi.mock('../database/index.js', () => ({
-  getDb: vi.fn(),
+  getDb: (...args: unknown[]) => mockGetDb(...args),
 }));
 
 // mock 설정 후 import
@@ -133,10 +184,30 @@ describe('Task Routes', () => {
     execution_status: null,
     last_execution_at: null,
     execution_session_id: null,
+    design_result: null,
+    design_status: null,
+    work_prompt: null,
+    pipeline_id: null,
     created_at: '2025-01-01',
     updated_at: '2025-01-01',
     completed_at: null,
   };
+
+  const sampleDesignResult = JSON.stringify({
+    overview: 'Test design overview',
+    steps: [
+      { step: 1, title: 'Step 1', description: 'Description 1', scope_tag: 'in-scope', agent_type: 'executor', model: 'sonnet', prompt: 'Do step 1' },
+      { step: 2, title: 'Step 2', description: 'Description 2', scope_tag: 'out-of-scope', agent_type: 'reviewer', model: 'haiku', prompt: 'Do step 2' },
+    ],
+    risks: ['risk1'],
+    success_criteria: ['criteria1'],
+    scope_analysis: {
+      out_of_scope_steps: [2],
+      partial_steps: [],
+      suggested_epic_title: 'New Epic',
+      suggested_epic_description: 'New epic description',
+    },
+  });
 
   describe('POST /api/tasks', () => {
     it('태스크 생성 성공 (201)', async () => {
@@ -677,6 +748,573 @@ describe('Task Routes', () => {
         url: '/api/tasks/999/branch/auto',
       });
       expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('GET /api/tasks/:id/resolve-project-path', () => {
+    it('성공: task → epic → prd → project_path 체인', async () => {
+      const taskWithEpic = { ...sampleTask, epic_id: 5 };
+      mockGetTask.mockReturnValue(taskWithEpic);
+      mockGetEpic.mockReturnValue({ id: 5, prd_id: 10 });
+      mockGetPrd.mockReturnValue({ id: 10, project_path: '/my/project' });
+
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/resolve-project-path' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ project_path: '/my/project' });
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/999/resolve-project-path' });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('epic_id 없을 때 null 반환', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/resolve-project-path' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ project_path: null });
+    });
+
+    it('epic 존재하지만 prd 없을 때 null', async () => {
+      const taskWithEpic = { ...sampleTask, epic_id: 5 };
+      mockGetTask.mockReturnValue(taskWithEpic);
+      mockGetEpic.mockReturnValue({ id: 5, prd_id: null });
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/resolve-project-path' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ project_path: null });
+    });
+  });
+
+  describe('POST /api/tasks/:id/execute', () => {
+    it('실행 성공 및 WebSocket 알림', async () => {
+      mockExecuteTask.mockResolvedValue({ status: 'started', session_id: 'session-123' });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/execute',
+        payload: { project_path: '/my/project', model: 'sonnet' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockExecuteTask).toHaveBeenCalledWith(1, '/my/project', {
+        model: 'sonnet',
+        additionalContext: undefined,
+        dryRun: undefined,
+      });
+      expect(mockWsManager.notifyTaskExecutionStarted).toHaveBeenCalledWith({ task_id: 1, session_id: 'session-123' });
+    });
+
+    it('project_path 누락 시 400', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/execute',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(mockExecuteTask).not.toHaveBeenCalled();
+    });
+
+    it('executeTask 에러 시 400', async () => {
+      mockExecuteTask.mockRejectedValue(new Error('Execution failed'));
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/execute',
+        payload: { project_path: '/my/project' },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('execution_failed');
+    });
+  });
+
+  describe('GET /api/tasks/:id/execution-status', () => {
+    it('실행 상태 조회 성공', async () => {
+      const taskWithExecution = {
+        ...sampleTask,
+        execution_status: 'running',
+        last_execution_at: '2025-01-02',
+        execution_session_id: 'session-456',
+      };
+      mockGetTask.mockReturnValue(taskWithExecution);
+
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/execution-status' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({
+        execution_status: 'running',
+        last_execution_at: '2025-01-02',
+        execution_session_id: 'session-456',
+      });
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/999/execution-status' });
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('POST /api/tasks/:id/design', () => {
+    it('work_prompt와 함께 설계 실행 성공', async () => {
+      mockUpdateTask.mockReturnValue({ ...sampleTask, work_prompt: 'Test prompt' });
+      mockRunDesign.mockResolvedValue({ status: 'completed', design_result: sampleDesignResult });
+      mockGetTask.mockReturnValue({ ...sampleTask, design_result: sampleDesignResult });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design',
+        payload: { project_path: '/my/project', work_prompt: 'Test prompt', model: 'opus' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockUpdateTask).toHaveBeenCalledWith(1, { work_prompt: 'Test prompt' });
+      expect(mockRunDesign).toHaveBeenCalledWith(1, '/my/project', 'opus');
+      expect(mockWsManager.notifyTaskUpdated).toHaveBeenCalled();
+    });
+
+    it('work_prompt 없이 설계 실행 성공', async () => {
+      mockRunDesign.mockResolvedValue({ status: 'completed' });
+      mockGetTask.mockReturnValue(sampleTask);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design',
+        payload: { project_path: '/my/project' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockUpdateTask).not.toHaveBeenCalled();
+      expect(mockRunDesign).toHaveBeenCalledWith(1, '/my/project', undefined);
+    });
+
+    it('project_path 누락 시 400', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(mockRunDesign).not.toHaveBeenCalled();
+    });
+
+    it('runDesign 에러 시 400', async () => {
+      mockRunDesign.mockRejectedValue(new Error('Design failed'));
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design',
+        payload: { project_path: '/my/project' },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('design_failed');
+    });
+  });
+
+  describe('PATCH /api/tasks/:id/design', () => {
+    it('설계 결과 부분 업데이트 성공', async () => {
+      const taskWithDesign = { ...sampleTask, design_result: sampleDesignResult };
+      mockGetTask.mockReturnValue(taskWithDesign);
+
+      const mockDbRun = vi.fn();
+      const mockDbPrepare = vi.fn(() => ({ run: mockDbRun }));
+      mockGetDb.mockReturnValue({ prepare: mockDbPrepare });
+
+      const updatedTask = { ...taskWithDesign, design_result: sampleDesignResult };
+      mockGetTask.mockReturnValueOnce(taskWithDesign).mockReturnValueOnce(updatedTask);
+
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/tasks/1/design',
+        payload: { overview: 'Updated overview' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockDbPrepare).toHaveBeenCalled();
+      expect(mockDbRun).toHaveBeenCalled();
+      expect(mockWsManager.notifyTaskUpdated).toHaveBeenCalledWith(updatedTask);
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/tasks/999/design',
+        payload: { overview: 'Updated' },
+      });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('design_result 없을 때 400', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({
+        method: 'PATCH',
+        url: '/api/tasks/1/design',
+        payload: { overview: 'Updated' },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('No design result to update');
+    });
+  });
+
+  describe('POST /api/tasks/:id/design/approve', () => {
+    it('설계 승인 및 파이프라인 생성 성공', async () => {
+      const taskWithDesign = { ...sampleTask, epic_id: 5, design_result: sampleDesignResult };
+      mockGetTask.mockReturnValue(taskWithDesign);
+
+      const mockPipelineSteps = [{ step: 1, agent_type: 'executor' }];
+      mockDesignStepsToPipelineSteps.mockReturnValue(mockPipelineSteps);
+
+      const mockGraphData = { nodes: [], edges: [] };
+      mockPipelineStepsToGraphData.mockReturnValue(mockGraphData);
+
+      const mockPipeline = { id: 100, name: 'Task #1: Test Task', steps: mockPipelineSteps };
+      mockCreatePipeline.mockReturnValue(mockPipeline);
+
+      const mockDbRun = vi.fn();
+      const mockDbPrepare = vi.fn(() => ({ run: mockDbRun }));
+      mockGetDb.mockReturnValue({ prepare: mockDbPrepare });
+
+      const updatedTask = { ...taskWithDesign, pipeline_id: 100 };
+      mockGetTask.mockReturnValueOnce(taskWithDesign).mockReturnValueOnce(updatedTask);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/approve',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockDesignStepsToPipelineSteps).toHaveBeenCalled();
+      expect(mockCreatePipeline).toHaveBeenCalled();
+      expect(mockWsManager.notifyPipelineCreated).toHaveBeenCalledWith(mockPipeline);
+      expect(mockWsManager.notifyTaskUpdated).toHaveBeenCalledWith(updatedTask);
+      expect(response.json()).toEqual({ task_id: 1, pipeline_id: 100, pipeline: mockPipeline });
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/999/design/approve',
+      });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('design_result 없을 때 400', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/approve',
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('No design result to approve');
+    });
+  });
+
+  describe('GET /api/tasks/:id/design/scope-proposal', () => {
+    it('범위 초과 제안 조회 성공', async () => {
+      const taskWithDesign = { ...sampleTask, epic_id: 5, design_result: sampleDesignResult };
+      mockGetTask.mockReturnValue(taskWithDesign);
+      mockGetEpic.mockReturnValue({ id: 5, prd_id: 10 });
+
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/design/scope-proposal' });
+      expect(response.statusCode).toBe(200);
+      const json = response.json();
+      expect(json.has_proposal).toBe(true);
+      expect(json.proposal.task_id).toBe(1);
+      expect(json.proposal.original_epic_id).toBe(5);
+      expect(json.proposal.suggested_epic.prd_id).toBe(10);
+    });
+
+    it('design_result 없을 때 has_proposal: false', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/design/scope-proposal' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ has_proposal: false });
+    });
+
+    it('scope_analysis 없을 때 has_proposal: false', async () => {
+      const designNoScope = JSON.stringify({ overview: 'Test', steps: [], risks: [], success_criteria: [] });
+      mockGetTask.mockReturnValue({ ...sampleTask, design_result: designNoScope });
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/design/scope-proposal' });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ has_proposal: false });
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/999/design/scope-proposal' });
+      expect(response.statusCode).toBe(404);
+    });
+  });
+
+  describe('POST /api/tasks/:id/design/scope-split', () => {
+    it('범위 분리 실행 성공', async () => {
+      const taskWithDesign = { ...sampleTask, epic_id: 5, design_result: sampleDesignResult, priority: 'P2' };
+      mockGetTask.mockReturnValue(taskWithDesign);
+      mockGetEpic.mockReturnValue({ id: 5, prd_id: 10 });
+
+      const newEpic = { id: 20, title: 'New Epic', description: 'New epic description' };
+      mockCreateEpic.mockReturnValue(newEpic);
+
+      const newTask = { id: 100, title: 'Step 2', epic_id: 20 };
+      mockCreateTask.mockReturnValue(newTask);
+
+      const mockDbRun = vi.fn();
+      const mockDbPrepare = vi.fn(() => ({ run: mockDbRun }));
+      mockGetDb.mockReturnValue({ prepare: mockDbPrepare });
+
+      const updatedTask = { ...taskWithDesign, design_result: JSON.stringify({ steps: [{ step: 1 }] }) };
+      mockGetTask
+        .mockReturnValueOnce(taskWithDesign)
+        .mockReturnValueOnce(updatedTask)
+        .mockReturnValueOnce(newTask);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/scope-split',
+        payload: { epic_title: 'Custom Epic', include_partial: false },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockCreateEpic).toHaveBeenCalledWith({
+        title: 'Custom Epic',
+        description: 'New epic description',
+        prd_id: 10,
+      });
+      expect(mockCreateTask).toHaveBeenCalled();
+      expect(mockWsManager.notifyEpicCreated).toHaveBeenCalledWith(newEpic);
+      expect(mockWsManager.notifyTaskUpdated).toHaveBeenCalled();
+      expect(mockWsManager.notifyTaskCreated).toHaveBeenCalled();
+      expect(mockWsManager.broadcast).toHaveBeenCalledWith('task', 'scope_split_completed', expect.any(Object));
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/999/design/scope-split',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('design_result 없을 때 400', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/scope-split',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('No design result');
+    });
+
+    it('epic_id 없을 때 400', async () => {
+      mockGetTask.mockReturnValue({ ...sampleTask, design_result: sampleDesignResult });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/scope-split',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('Task has no epic');
+    });
+
+    it('scope_analysis 없을 때 400', async () => {
+      const designNoScope = JSON.stringify({ overview: 'Test', steps: [], risks: [], success_criteria: [] });
+      mockGetTask.mockReturnValue({ ...sampleTask, epic_id: 5, design_result: designNoScope });
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/design/scope-split',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().message).toBe('No scope analysis found');
+    });
+  });
+
+  describe('POST /api/tasks/:id/implement', () => {
+    it('구현 실행 성공', async () => {
+      mockRunImplementation.mockResolvedValue({ status: 'completed', session_id: 'impl-session-123' });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/implement',
+        payload: { project_path: '/my/project', model: 'opus' },
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockRunImplementation).toHaveBeenCalledWith(1, '/my/project', 'opus');
+      expect(response.json()).toEqual({ status: 'completed', session_id: 'impl-session-123' });
+    });
+
+    it('project_path 누락 시 400', async () => {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/implement',
+        payload: {},
+      });
+      expect(response.statusCode).toBe(400);
+      expect(mockRunImplementation).not.toHaveBeenCalled();
+    });
+
+    it('runImplementation 에러 시 400', async () => {
+      mockRunImplementation.mockRejectedValue(new Error('Implementation failed'));
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/implement',
+        payload: { project_path: '/my/project' },
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('implementation_failed');
+    });
+  });
+
+  describe('GET /api/tasks/:id/execution-logs', () => {
+    it('필터와 함께 실행 로그 조회', async () => {
+      const mockLogs = {
+        items: [{ id: 1, task_id: 1, phase: 'design', agent_type: 'executor' }],
+        total: 1,
+        page: 1,
+        page_size: 50,
+      };
+      mockListExecutionLogs.mockReturnValue(mockLogs);
+
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/tasks/1/execution-logs?phase=design&agent_type=executor&model=sonnet&status=completed&search=test&execution_id=5&page=2&page_size=20',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockListExecutionLogs).toHaveBeenCalledWith(1, {
+        phase: 'design',
+        agent_type: 'executor',
+        model: 'sonnet',
+        status: 'completed',
+        search: 'test',
+        execution_id: 5,
+        page: 2,
+        page_size: 20,
+      });
+      expect(response.json()).toEqual(mockLogs);
+    });
+
+    it('필터 없이 실행 로그 조회', async () => {
+      mockListExecutionLogs.mockReturnValue({ items: [], total: 0, page: 1, page_size: 50 });
+
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/execution-logs' });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockListExecutionLogs).toHaveBeenCalledWith(1, {
+        phase: undefined,
+        agent_type: undefined,
+        model: undefined,
+        status: undefined,
+        search: undefined,
+        execution_id: undefined,
+        page: undefined,
+        page_size: undefined,
+      });
+    });
+  });
+
+  describe('GET /api/tasks/:id/execution-groups', () => {
+    it('실행 그룹 조회 성공', async () => {
+      const mockGroups = [
+        { execution_id: 1, phase: 'design', count: 5 },
+        { execution_id: 2, phase: 'implementation', count: 10 },
+      ];
+      mockListExecutionGroups.mockReturnValue(mockGroups);
+
+      const response = await app.inject({ method: 'GET', url: '/api/tasks/1/execution-groups' });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockListExecutionGroups).toHaveBeenCalledWith(1);
+      expect(response.json()).toEqual(mockGroups);
+    });
+  });
+
+  describe('POST /api/tasks/:id/cancel', () => {
+    it('파이프라인 실행 중인 태스크 취소 성공', async () => {
+      const runningTask = { ...sampleTask, execution_status: 'running', pipeline_id: 100 };
+      mockGetTask.mockReturnValue(runningTask);
+      mockListExecutions.mockReturnValue([{ id: 50, status: 'running', pipeline_id: 100 }]);
+      mockCancelExecution.mockReturnValue(undefined);
+      mockCancelTaskExecution.mockReturnValue(true);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/cancel',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockCancelExecution).toHaveBeenCalledWith(50);
+      expect(mockCancelTaskExecution).toHaveBeenCalledWith(1);
+      expect(response.json()).toEqual({ success: true, cancelled: true });
+    });
+
+    it('파이프라인 없이 직접 실행 중인 태스크 취소', async () => {
+      const runningTask = { ...sampleTask, design_status: 'running', pipeline_id: null };
+      mockGetTask.mockReturnValue(runningTask);
+      mockCancelTaskExecution.mockReturnValue(true);
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/cancel',
+      });
+
+      expect(response.statusCode).toBe(200);
+      expect(mockCancelExecution).not.toHaveBeenCalled();
+      expect(mockCancelTaskExecution).toHaveBeenCalledWith(1);
+    });
+
+    it('존재하지 않는 태스크 404', async () => {
+      mockGetTask.mockReturnValue(undefined);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/999/cancel',
+      });
+      expect(response.statusCode).toBe(404);
+    });
+
+    it('실행 중이 아닌 태스크 취소 시 400', async () => {
+      mockGetTask.mockReturnValue(sampleTask);
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/cancel',
+      });
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('not_running');
+    });
+  });
+
+  describe('POST /api/tasks/:id/commits/scan - error cases', () => {
+    it('스캔 실패 시 400 에러', async () => {
+      mockScanTaskCommits.mockImplementation(() => { throw new Error('Scan error'); });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/commits/scan',
+        payload: { project_path: '/my/project' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('scan_failed');
+      expect(response.json().message).toBe('Scan error');
+    });
+  });
+
+  describe('POST /api/tasks/:id/commits/link - error cases', () => {
+    it('연결 실패 시 400 에러', async () => {
+      mockLinkCommit.mockImplementation(() => { throw new Error('Link error'); });
+
+      const response = await app.inject({
+        method: 'POST',
+        url: '/api/tasks/1/commits/link',
+        payload: { commit_hash: 'abc123', project_path: '/my/project' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().error).toBe('link_failed');
+      expect(response.json().message).toBe('Link error');
     });
   });
 });
