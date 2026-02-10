@@ -1,7 +1,7 @@
 'use client';
 
 import { useEpics } from '@/lib/hooks/use-epics';
-import { useMembers, useTeams } from '@/lib/hooks/use-teams';
+import { useTeams } from '@/lib/hooks/use-teams';
 import type { BoardFilters } from '@/lib/hooks/use-tasks';
 import { X } from 'lucide-react';
 
@@ -27,10 +27,8 @@ export function BoardFiltersToolbar({
   onChange: (filters: BoardFilters) => void;
 }) {
   const { data: epicsData } = useEpics();
-  const { data: membersData } = useMembers();
   const { data: teamsData } = useTeams();
 
-  const allMembers = membersData?.items ?? [];
   const allTeams = teamsData?.items ?? [];
   const allEpics = epicsData?.items ?? [];
 
@@ -39,7 +37,7 @@ export function BoardFiltersToolbar({
   const update = (key: keyof BoardFilters, value: string | undefined) => {
     const next = { ...filters };
     if (value) {
-      (next as Record<string, unknown>)[key] = key === 'epic_id' || key === 'assignee_id' || key === 'team_id' ? parseInt(value) : value;
+      (next as Record<string, unknown>)[key] = key === 'epic_id' || key === 'team_id' ? parseInt(value) : value;
     } else {
       delete (next as Record<string, unknown>)[key];
     }
@@ -73,28 +71,15 @@ export function BoardFiltersToolbar({
       </select>
 
       <select
-        value={filters.assignee_id ?? ''}
-        onChange={(e) => update('assignee_id', e.target.value || undefined)}
+        value={filters.team_id ?? ''}
+        onChange={(e) => update('team_id', e.target.value || undefined)}
         className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
       >
-        <option value="">모든 담당자</option>
-        {allMembers.map((m) => (
-          <option key={m.id} value={m.id}>{m.name}</option>
+        <option value="">모든 팀</option>
+        {allTeams.map((t) => (
+          <option key={t.id} value={t.id}>{t.name}</option>
         ))}
       </select>
-
-      {allTeams.length > 0 && (
-        <select
-          value={filters.team_id ?? ''}
-          onChange={(e) => update('team_id', e.target.value || undefined)}
-          className="rounded-md border border-input bg-background px-3 py-1.5 text-sm"
-        >
-          <option value="">모든 팀</option>
-          {allTeams.map((t) => (
-            <option key={t.id} value={t.id}>{t.name}</option>
-          ))}
-        </select>
-      )}
 
       <select
         value={filters.effort ?? ''}

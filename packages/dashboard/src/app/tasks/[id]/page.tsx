@@ -2,8 +2,7 @@
 
 import { use, useState, useEffect } from 'react';
 import { useTask, useTaskHistory, useDeleteTask, useUpdateTask, useExecuteTask, useImplementTask, useRunVerification, useResolveProjectPath } from '@/lib/hooks/use-tasks';
-import { useMembers, useAssignTask, useUnassignTask } from '@/lib/hooks/use-teams';
-import { MemberAvatar } from '@/components/teams/member-avatar';
+import { useTeams, useAssignTeamToTask, useUnassignTeamFromTask, useTaskTeams } from '@/lib/hooks/use-teams';
 import { PriorityBadge } from '@/components/tasks/priority-badge';
 import { TaskWorkPrompt } from '@/components/tasks/task-work-prompt';
 import { TaskDesignResult } from '@/components/tasks/task-design-result';
@@ -42,11 +41,12 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
   const executeTask = useExecuteTask();
   const implementTask = useImplementTask();
   const router = useRouter();
-  const { data: membersData } = useMembers();
-  const assignTask = useAssignTask();
-  const unassignTask = useUnassignTask();
+  const { data: teamsData } = useTeams();
+  const assignTeamToTask = useAssignTeamToTask();
+  const unassignTeamFromTask = useUnassignTeamFromTask();
+  const { data: taskTeams } = useTaskTeams(taskId);
   const { toast } = useToast();
-  const [addMemberOpen, setAddMemberOpen] = useState(false);
+  const [addTeamOpen, setAddTeamOpen] = useState(false);
   const [branchInput, setBranchInput] = useState('');
   const [showBranchInput, setShowBranchInput] = useState(false);
   const [projectPath, setProjectPath] = useState('');
@@ -69,9 +69,9 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
   if (!task) return <div className="animate-pulse h-64 rounded-lg bg-muted" />;
 
-  const allMembers = membersData?.items ?? [];
-  const assignedIds = task.assignee_ids ?? [];
-  const unassignedMembers = allMembers.filter((m) => !assignedIds.includes(m.id));
+  const allTeams = teamsData?.items ?? [];
+  const assignedTeams = taskTeams ?? [];
+  const unassignedTeams = allTeams.filter((t) => !assignedTeams.some((at) => at.id === t.id));
 
   // 상태 기반 워크플로우 판단
   const showWorkPrompt = ['todo', 'design', 'implementation', 'verification', 'review', 'done'].includes(task.status);
@@ -140,50 +140,56 @@ export default function TaskDetailPage({ params }: { params: Promise<{ id: strin
 
       {/* 인라인 메타데이터 */}
       <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-        {/* 담당자 */}
+        {/* 할당된 팀 */}
         <div className="flex items-center gap-1.5 relative">
           <User className="h-3.5 w-3.5" />
-          {task.assignees && task.assignees.length > 0 ? (
-            task.assignees.map((a) => (
-              <div key={a.id} className="flex items-center gap-1 group">
-                <MemberAvatar name={a.name} size="sm" />
-                <span className="text-foreground text-sm">{a.name}</span>
+          {assignedTeams.length > 0 ? (
+            assignedTeams.map((team) => (
+              <div key={team.id} className="flex items-center gap-1 group">
+                <div className="h-5 w-5 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: team.avatar_color }}>
+                  {team.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-foreground text-sm">{team.name}</span>
                 <button
-                  onClick={() => unassignTask.mutate({ taskId: task.id, memberIds: [a.id] })}
+                  onClick={() => unassignTeamFromTask.mutate({ taskId: task.id, teamId: team.id })}
                   className="cursor-pointer opacity-0 group-hover:opacity-100 text-destructive hover:bg-destructive/10 rounded p-0.5 transition-opacity"
-                  title="할당 해제"
+                  title="팀 할당 해제"
                 >
                   <X className="h-3 w-3" />
                 </button>
               </div>
             ))
           ) : (
-            <span>{task.assignee || '미지정'}</span>
+            <span>팀 미지정</span>
           )}
           <button
-            onClick={() => setAddMemberOpen(!addMemberOpen)}
+            onClick={() => setAddTeamOpen(!addTeamOpen)}
             className="cursor-pointer text-primary hover:text-primary/80 transition-colors"
-            title="멤버 추가"
+            title="팀 추가"
           >
             <Plus className="h-3 w-3" />
           </button>
-          {addMemberOpen && (
+          {addTeamOpen && (
             <div className="absolute z-10 top-full mt-1 left-0 w-48 rounded-md border border-border bg-card shadow-lg max-h-40 overflow-y-auto">
-              {unassignedMembers.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-muted-foreground">추가할 멤버 없음</p>
+              {unassignedTeams.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">추가할 팀 없음</p>
               ) : (
-                unassignedMembers.map((member) => (
+                unassignedTeams.map((team) => (
                   <button
-                    key={member.id}
+                    key={team.id}
                     onClick={() => {
-                      assignTask.mutate({ taskId: task.id, memberIds: [member.id] });
-                      setAddMemberOpen(false);
+                      assignTeamToTask.mutate({ taskId: task.id, teamId: team.id });
+                      setAddTeamOpen(false);
                     }}
                     className="cursor-pointer w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-sm text-left transition-colors"
                   >
-                    <MemberAvatar name={member.name} size="sm" />
-                    <span>{member.name}</span>
-                    <span className="text-xs text-muted-foreground ml-auto">{member.role}</span>
+                    <div className="h-5 w-5 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: team.avatar_color }}>
+                      {team.name.charAt(0).toUpperCase()}
+                    </div>
+                    <span>{team.name}</span>
+                    {team.agent_count !== undefined && (
+                      <span className="text-xs text-muted-foreground ml-auto">{team.agent_count}명</span>
+                    )}
                   </button>
                 ))
               )}

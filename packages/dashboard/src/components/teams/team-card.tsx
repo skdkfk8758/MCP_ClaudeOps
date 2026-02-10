@@ -30,7 +30,12 @@ export function TeamCard({ team, selected, onClick, onDelete }: {
       </div>
       <div className="flex items-center gap-1 mt-3 text-xs text-muted-foreground">
         <Users className="h-3 w-3" />
-        <span>{team.member_count ?? 0}명</span>
+        <span>{team.agent_count ?? 0}개</span>
+        {team.status && team.status !== 'active' && (
+          <span className="ml-2 rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] text-yellow-600">
+            {team.status === 'archived' ? '보관됨' : team.status}
+          </span>
+        )}
       </div>
     </div>
   );

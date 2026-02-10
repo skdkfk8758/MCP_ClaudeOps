@@ -1,37 +1,34 @@
 'use client';
 
 import { useState } from 'react';
-import { useTeams, useMembers, useDeleteTeam, useRemoveMember, useMemberWorkload, useTeamWorkload } from '@/lib/hooks/use-teams';
+import { useTeams, useDeleteTeam, useTeamAgents, useRemoveAgentFromTeam, useTeamWorkload } from '@/lib/hooks/use-teams';
 import { TeamCard } from '@/components/teams/team-card';
 import { TeamCreateDialog } from '@/components/teams/team-create-dialog';
 import { MemberCreateDialog } from '@/components/teams/member-create-dialog';
 import { MemberList } from '@/components/teams/member-list';
-import { MemberAvatar } from '@/components/teams/member-avatar';
 import { WorkloadStats } from '@/components/teams/workload-stats';
 import { WorkloadHeatmap } from '@/components/teams/workload-heatmap';
-import { MemberTaskList } from '@/components/teams/member-task-list';
-import { Plus, Users } from 'lucide-react';
-import type { TeamMember } from '@claudeops/shared';
+import { Plus, Users, Bot } from 'lucide-react';
+import type { TeamAgent } from '@claudeops/shared';
 
 export default function TeamsPage() {
   const [createTeamOpen, setCreateTeamOpen] = useState(false);
-  const [createMemberOpen, setCreateMemberOpen] = useState(false);
+  const [createAgentOpen, setCreateAgentOpen] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [selectedAgent, setSelectedAgent] = useState<TeamAgent | null>(null);
 
   const { data: teamsData } = useTeams();
   const selectedTeam = teamsData?.items.find(t => t.id === selectedTeamId);
-  const { data: membersData } = useMembers(selectedTeamId ?? undefined);
-  const { data: memberWorkload } = useMemberWorkload(selectedMember?.id ?? 0);
+  const { data: teamAgents } = useTeamAgents(selectedTeamId ?? 0);
   const { data: teamWorkload } = useTeamWorkload(selectedTeamId ?? 0);
   const deleteTeam = useDeleteTeam();
-  const removeMember = useRemoveMember();
+  const removeAgent = useRemoveAgentFromTeam();
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">팀 & 멤버</h1>
+          <h1 className="text-2xl font-bold">팀 & 에이전트</h1>
           <p className="text-sm text-muted-foreground mt-1">팀 구성과 워크로드를 관리합니다</p>
         </div>
         <button onClick={() => setCreateTeamOpen(true)}
@@ -55,7 +52,7 @@ export default function TeamsPage() {
               <TeamCard
                 team={team}
                 selected={selectedTeamId === team.id}
-                onClick={() => { setSelectedTeamId(team.id); setSelectedMember(null); }}
+                onClick={() => { setSelectedTeamId(team.id); setSelectedAgent(null); }}
                 onDelete={() => { if (confirm(`"${team.name}" 팀을 삭제하시겠습니까?`)) deleteTeam.mutate(team.id); }}
               />
             </div>
@@ -66,50 +63,63 @@ export default function TeamsPage() {
       {/* Main Content */}
       {selectedTeam && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Member List */}
+          {/* Left: Agent List */}
           <div className="rounded-lg border border-border bg-card p-4">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold">멤버 ({membersData?.total ?? 0})</h2>
-              <button onClick={() => setCreateMemberOpen(true)}
+              <h2 className="text-sm font-semibold">에이전트 ({teamAgents?.length ?? 0})</h2>
+              <button onClick={() => setCreateAgentOpen(true)}
                 className="cursor-pointer rounded-md px-2 py-1 text-xs text-primary hover:bg-primary/10 transition-colors">
                 + 추가
               </button>
             </div>
-            {membersData && (
+            {teamAgents && selectedTeamId && (
               <MemberList
-                members={membersData.items}
+                teamId={selectedTeamId}
+                agents={teamAgents}
                 teamColor={selectedTeam.avatar_color}
-                selectedId={selectedMember?.id}
-                onSelect={(m) => setSelectedMember(m)}
-                onRemove={(id) => { if (confirm('이 멤버를 삭제하시겠습니까?')) { removeMember.mutate(id); if (selectedMember?.id === id) setSelectedMember(null); } }}
+                selectedId={selectedAgent?.id}
+                onSelect={(a) => setSelectedAgent(a)}
+                onRemove={(id) => { if (confirm('이 에이전트를 삭제하시겠습니까?')) { removeAgent.mutate(id); if (selectedAgent?.id === id) setSelectedAgent(null); } }}
               />
             )}
           </div>
 
-          {/* Right: Workload & Tasks */}
+          {/* Right: Workload & Stats */}
           <div className="lg:col-span-2 space-y-6">
-            {selectedMember ? (
+            {selectedAgent?.persona ? (
               <>
                 <div className="flex items-center gap-3">
-                  <MemberAvatar name={selectedMember.name} color={selectedTeam.avatar_color} size="lg" />
+                  <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold"
+                    style={{ backgroundColor: selectedAgent.persona.color ?? '#6366f1' }}>
+                    <Bot className="h-6 w-6" />
+                  </div>
                   <div>
-                    <h2 className="text-lg font-semibold">{selectedMember.name}</h2>
+                    <h2 className="text-lg font-semibold">{selectedAgent.persona.name}</h2>
                     <div className="flex gap-2 mt-0.5">
-                      {selectedMember.specialties?.map((s) => (
-                        <span key={s} className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">{s}</span>
-                      ))}
+                      <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">{selectedAgent.persona.model}</span>
+                      <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[10px] text-blue-600">{selectedAgent.role}</span>
+                      <span className="rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] text-purple-600">{selectedAgent.persona.category}</span>
                     </div>
                   </div>
                 </div>
-                {memberWorkload && <WorkloadStats workload={memberWorkload} />}
-                <div className="rounded-lg border border-border bg-card p-4">
-                  <h3 className="text-sm font-semibold mb-3">할당된 작업</h3>
-                  <MemberTaskList memberName={selectedMember.name} />
-                </div>
+                {teamWorkload && (
+                  <WorkloadStats
+                    workload={teamWorkload.agents.find(a => a.team_agent_id === selectedAgent.id) ?? {
+                      team_agent_id: selectedAgent.id,
+                      persona_name: selectedAgent.persona.name,
+                      agent_type: selectedAgent.persona.agent_type,
+                      team_name: selectedTeam.name,
+                      role: selectedAgent.role,
+                      total_tasks: 0,
+                      by_status: {},
+                      active_executions: 0,
+                    }}
+                  />
+                )}
               </>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                <p className="text-sm">멤버를 선택하면 워크로드와 작업을 확인할 수 있습니다.</p>
+                <p className="text-sm">에이전트를 선택하면 워크로드와 작업을 확인할 수 있습니다.</p>
               </div>
             )}
           </div>
@@ -117,7 +127,7 @@ export default function TeamsPage() {
       )}
 
       {/* Heatmap */}
-      {teamWorkload && teamWorkload.members.length > 0 && (
+      {teamWorkload && teamWorkload.agents.length > 0 && (
         <div className="rounded-lg border border-border bg-card p-6">
           <h2 className="text-lg font-semibold mb-4">팀 워크로드 히트맵</h2>
           <WorkloadHeatmap workload={teamWorkload} />
@@ -125,7 +135,7 @@ export default function TeamsPage() {
       )}
 
       <TeamCreateDialog open={createTeamOpen} onClose={() => setCreateTeamOpen(false)} />
-      {selectedTeamId && <MemberCreateDialog open={createMemberOpen} onClose={() => setCreateMemberOpen(false)} teamId={selectedTeamId} />}
+      {selectedTeamId && <MemberCreateDialog open={createAgentOpen} onClose={() => setCreateAgentOpen(false)} teamId={selectedTeamId} />}
     </div>
   );
 }

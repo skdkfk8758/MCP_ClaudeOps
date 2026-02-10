@@ -1,39 +1,64 @@
 'use client';
 
-import type { TeamMember } from '@claudeops/shared';
-import { MemberAvatar } from './member-avatar';
-import { Trash2 } from 'lucide-react';
+import type { TeamAgent } from '@claudeops/shared';
+import { Bot, Trash2 } from 'lucide-react';
 
-const ROLE_LABELS: Record<string, string> = { lead: '리드', member: '멤버', observer: '옵저버' };
+const ROLE_LABELS: Record<string, string> = {
+  lead: '리드',
+  worker: '워커',
+  reviewer: '리뷰어',
+  observer: '옵저버',
+};
 
-export function MemberList({ members, teamColor, selectedId, onSelect, onRemove }: {
-  members: TeamMember[]; teamColor: string; selectedId?: number; onSelect: (m: TeamMember) => void; onRemove: (id: number) => void;
+const TIER_COLORS: Record<string, string> = {
+  haiku: 'bg-green-500/10 text-green-600',
+  sonnet: 'bg-blue-500/10 text-blue-600',
+  opus: 'bg-purple-500/10 text-purple-600',
+};
+
+export function MemberList({ teamId, agents, teamColor, selectedId, onSelect, onRemove }: {
+  teamId: number;
+  agents: TeamAgent[];
+  teamColor: string;
+  selectedId?: number;
+  onSelect: (a: TeamAgent) => void;
+  onRemove: (id: number) => void;
 }) {
   return (
     <div className="space-y-1">
-      {members.map((m) => (
+      {agents.map((agent) => (
         <div
-          key={m.id}
-          onClick={() => onSelect(m)}
-          className={`cursor-pointer flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
-            selectedId === m.id ? 'bg-primary/10' : 'hover:bg-accent'
+          key={agent.id}
+          onClick={() => onSelect(agent)}
+          className={`group cursor-pointer flex items-center gap-3 rounded-md px-3 py-2 transition-colors ${
+            selectedId === agent.id ? 'bg-primary/10' : 'hover:bg-accent'
           }`}
         >
           <div className="relative">
-            <MemberAvatar name={m.name} color={teamColor} />
-            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-card ${
-              m.status === 'active' ? 'bg-green-500' : 'bg-gray-400'
-            }`} />
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white"
+              style={{ backgroundColor: agent.persona?.color ?? teamColor }}
+            >
+              <Bot className="h-4 w-4" />
+            </div>
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{m.name}</p>
-            <p className="text-xs text-muted-foreground">{ROLE_LABELS[m.role] ?? m.role}</p>
+            <p className="text-sm font-medium truncate">{agent.persona?.name ?? '알 수 없음'}</p>
+            <div className="flex gap-1 mt-0.5">
+              {agent.persona?.model && (
+                <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-medium ${
+                  TIER_COLORS[agent.persona.model] ?? 'bg-gray-500/10 text-gray-600'
+                }`}>
+                  {agent.persona.model}
+                </span>
+              )}
+              <span className="rounded-full bg-blue-500/10 px-1.5 py-0.5 text-[9px] font-medium text-blue-600">
+                {ROLE_LABELS[agent.role] ?? agent.role}
+              </span>
+            </div>
           </div>
-          {m.active_task_count !== undefined && m.active_task_count > 0 && (
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">{m.active_task_count}</span>
-          )}
           <button
-            onClick={(e) => { e.stopPropagation(); onRemove(m.id); }}
+            onClick={(e) => { e.stopPropagation(); onRemove(agent.id); }}
             className="cursor-pointer opacity-0 group-hover:opacity-100 rounded-md p-1 text-muted-foreground hover:text-destructive transition-all"
           >
             <Trash2 className="h-3 w-3" />

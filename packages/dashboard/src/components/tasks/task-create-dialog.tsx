@@ -3,8 +3,7 @@
 import { useState } from 'react';
 import { useCreateTask } from '@/lib/hooks/use-tasks';
 import { useEpics } from '@/lib/hooks/use-epics';
-import { useMembers, useAssignTask } from '@/lib/hooks/use-teams';
-import { MemberAvatar } from '@/components/teams/member-avatar';
+import { useTeams, useAssignTeamToTask } from '@/lib/hooks/use-teams';
 import { X, ChevronDown } from 'lucide-react';
 
 export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -12,24 +11,18 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('P2');
   const [status, setStatus] = useState('backlog');
-  const [selectedMemberIds, setSelectedMemberIds] = useState<number[]>([]);
-  const [memberDropdownOpen, setMemberDropdownOpen] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | undefined>();
+  const [teamDropdownOpen, setTeamDropdownOpen] = useState(false);
   const [effort, setEffort] = useState('');
   const [epicId, setEpicId] = useState<number | undefined>();
   const createTask = useCreateTask();
-  const assignTask = useAssignTask();
+  const assignTeamToTask = useAssignTeamToTask();
   const { data: epicsData } = useEpics();
-  const { data: membersData } = useMembers();
+  const { data: teamsData } = useTeams();
 
   if (!open) return null;
 
-  const allMembers = membersData?.items ?? [];
-
-  const toggleMember = (id: number) => {
-    setSelectedMemberIds((prev) =>
-      prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id]
-    );
-  };
+  const allTeams = teamsData?.items ?? [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,10 +36,10 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
       epic_id: epicId,
     }, {
       onSuccess: (createdTask) => {
-        if (selectedMemberIds.length > 0) {
-          assignTask.mutate({ taskId: createdTask.id, memberIds: selectedMemberIds });
+        if (selectedTeamId) {
+          assignTeamToTask.mutate({ taskId: createdTask.id, teamId: selectedTeamId });
         }
-        setTitle(''); setDescription(''); setPriority('P2'); setStatus('backlog'); setSelectedMemberIds([]); setEffort(''); setEpicId(undefined);
+        setTitle(''); setDescription(''); setPriority('P2'); setStatus('backlog'); setSelectedTeamId(undefined); setEffort(''); setEpicId(undefined);
         onClose();
       },
     });
@@ -96,39 +89,47 @@ export function TaskCreateDialog({ open, onClose }: { open: boolean; onClose: ()
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="relative">
-              <label className="text-sm text-muted-foreground block mb-1">담당자</label>
-              {selectedMemberIds.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-1.5">
-                  {selectedMemberIds.map((mid) => {
-                    const member = allMembers.find((m) => m.id === mid);
-                    if (!member) return null;
-                    return (
-                      <span key={mid} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-xs text-primary">
-                        <MemberAvatar name={member.name} size="sm" />
-                        {member.name}
-                        <button type="button" onClick={() => toggleMember(mid)} className="cursor-pointer hover:text-destructive"><X className="h-3 w-3" /></button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              <button type="button" onClick={() => setMemberDropdownOpen(!memberDropdownOpen)}
+              <label className="text-sm text-muted-foreground block mb-1">담당 팀</label>
+              <button type="button" onClick={() => setTeamDropdownOpen(!teamDropdownOpen)}
                 className="cursor-pointer w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-left flex items-center justify-between">
-                <span className="text-muted-foreground">{selectedMemberIds.length > 0 ? `${selectedMemberIds.length}명 선택됨` : '멤버 선택...'}</span>
+                <span className="text-muted-foreground">
+                  {selectedTeamId ? allTeams.find((t) => t.id === selectedTeamId)?.name || '팀 선택...' : '팀 선택...'}
+                </span>
                 <ChevronDown className="h-3 w-3" />
               </button>
-              {memberDropdownOpen && (
+              {teamDropdownOpen && (
                 <div className="absolute z-10 mt-1 w-full rounded-md border border-border bg-card shadow-lg max-h-40 overflow-y-auto">
-                  {allMembers.length === 0 && (
-                    <p className="px-3 py-2 text-xs text-muted-foreground">등록된 멤버가 없습니다</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTeamId(undefined);
+                      setTeamDropdownOpen(false);
+                    }}
+                    className="cursor-pointer w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-sm text-left transition-colors"
+                  >
+                    <span className="text-muted-foreground">선택 안 함</span>
+                  </button>
+                  {allTeams.length === 0 && (
+                    <p className="px-3 py-2 text-xs text-muted-foreground">등록된 팀이 없습니다</p>
                   )}
-                  {allMembers.map((member) => (
-                    <label key={member.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-accent cursor-pointer text-sm">
-                      <input type="checkbox" checked={selectedMemberIds.includes(member.id)} onChange={() => toggleMember(member.id)} className="cursor-pointer" />
-                      <MemberAvatar name={member.name} size="sm" />
-                      <span>{member.name}</span>
-                      <span className="text-xs text-muted-foreground ml-auto">{member.role}</span>
-                    </label>
+                  {allTeams.map((team) => (
+                    <button
+                      key={team.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedTeamId(team.id);
+                        setTeamDropdownOpen(false);
+                      }}
+                      className="cursor-pointer w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent text-sm text-left transition-colors"
+                    >
+                      <div className="h-5 w-5 rounded-full flex items-center justify-center text-xs font-semibold" style={{ backgroundColor: team.avatar_color }}>
+                        {team.name.charAt(0).toUpperCase()}
+                      </div>
+                      <span>{team.name}</span>
+                      {team.agent_count !== undefined && (
+                        <span className="text-xs text-muted-foreground ml-auto">{team.agent_count}명</span>
+                      )}
+                    </button>
                   ))}
                 </div>
               )}
